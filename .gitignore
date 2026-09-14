@@ -1,0 +1,7 @@
+result
+result-*
+/vendor/
+.direnv/
+*.swp
+.DS_Store
+.build/

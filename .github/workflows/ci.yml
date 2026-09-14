@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: nix flake check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # Evaluates every output, builds the package (which runs the Go suite in
+      # its checkPhase), runs the module eval checks, and boots the VM test.
+      - run: nix flake check -L
+
+      - run: nix build -L .#netskope-mcp
+
+      - run: nix fmt -- --ci
