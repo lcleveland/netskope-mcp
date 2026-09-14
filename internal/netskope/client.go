@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -120,13 +121,16 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 		}
 	}
 
-	u := *c.base
-	u.Path = c.base.Path + path
+	// JoinPath rather than u.Path = base.Path + path: Resource.itemPath has already
+	// percent-escaped the id, and url.URL.Path holds the *decoded* path, so
+	// assigning to it escapes the escapes (%2F becomes %252F) and the request goes
+	// somewhere else entirely. JoinPath treats its argument as already escaped.
+	u := c.base.JoinPath(path)
 	if q != nil {
 		u.RawQuery = q.Encode()
 	}
 
-	resp, raw, err := c.send(ctx, method, &u, path, payload)
+	raw, err := c.send(ctx, method, u, path, payload)
 	if err != nil {
 		return err
 	}
@@ -136,22 +140,20 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 	if err := json.Unmarshal(raw, out); err != nil {
 		return fmt.Errorf("decoding %s %s response: %w", method, path, err)
 	}
-	_ = resp
 	return nil
 }
 
-// send performs the request with retries and returns the successful response
-// and its body.
-func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath string, payload []byte) (*http.Response, []byte, error) {
+// send performs the request with retries and returns the successful response body.
+func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath string, payload []byte) ([]byte, error) {
 	var lastErr error
 	for attempt := 0; attempt <= c.retry.MaxRetries; attempt++ {
 		if attempt > 0 {
 			if err := sleepCtx(ctx, c.retry.backoff(attempt, lastRetryAfter(lastErr))); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 		if err := c.limit.wait(ctx); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		var rdr io.Reader
@@ -160,7 +162,7 @@ func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath st
 		}
 		req, err := http.NewRequestWithContext(ctx, method, u.String(), rdr)
 		if err != nil {
-			return nil, nil, fmt.Errorf("building %s %s: %w", method, logPath, err)
+			return nil, fmt.Errorf("building %s %s: %w", method, logPath, err)
 		}
 		req.Header.Set(c.header, c.token)
 		req.Header.Set("Accept", "application/json")
@@ -180,7 +182,7 @@ func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath st
 				c.log.Debug("netskope request failed, retrying", "method", method, "path", logPath, "attempt", attempt, "err", err)
 				continue
 			}
-			return nil, nil, fmt.Errorf("netskope %s %s: %w", method, logPath, err)
+			return nil, fmt.Errorf("netskope %s %s: %w", method, logPath, err)
 		}
 
 		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
@@ -195,11 +197,11 @@ func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath st
 			if c.retry.retryTransport(method, attempt) {
 				continue
 			}
-			return nil, nil, fmt.Errorf("netskope %s %s: reading response: %w", method, logPath, readErr)
+			return nil, fmt.Errorf("netskope %s %s: reading response: %w", method, logPath, readErr)
 		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-			return resp, raw, nil
+			return raw, nil
 		}
 
 		apiErr := newAPIError(method, logPath, resp, raw, c.token)
@@ -208,15 +210,16 @@ func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath st
 			c.log.Debug("netskope request retryable", "method", method, "path", logPath, "status", resp.StatusCode, "attempt", attempt)
 			continue
 		}
-		return nil, nil, apiErr
+		return nil, apiErr
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("netskope %s %s: retries exhausted", method, logPath)
 	}
-	if ae, ok := lastErr.(*APIError); ok {
-		return nil, nil, ae
+	var ae *APIError
+	if errors.As(lastErr, &ae) {
+		return nil, ae
 	}
-	return nil, nil, fmt.Errorf("netskope %s %s: %w", method, logPath, lastErr)
+	return nil, fmt.Errorf("netskope %s %s: %w", method, logPath, lastErr)
 }
 
 // newAPIError maps a failing response, pulling Netskope's error code and message

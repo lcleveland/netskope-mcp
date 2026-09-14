@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -45,6 +46,16 @@ func run(args []string, env func(string) string) error {
 			"/proc/self/environ can see it; prefer --api-token-file or systemd's LoadCredential=")
 	}
 
+	// The NixOS module warns about this at eval time; a hand-run server got no
+	// signal at all. Same exposure: anything that can reach the listener can drive
+	// the tenant through it.
+	if cfg.Mode == config.ModeHTTP && cfg.HTTPAuthToken == "" && !loopback(cfg.Addr) {
+		log.Warn("the MCP endpoint is listening off loopback with no bearer token, so anything "+
+			"that can reach it can read (and possibly rewrite) the tenant's security "+
+			"configuration; set --http-auth-token-file, or bind to 127.0.0.1",
+			"addr", cfg.Addr)
+	}
+
 	client, err := netskope.New(netskope.Options{
 		BaseURL: cfg.BaseURL,
 		Token:   cfg.Token,
@@ -71,4 +82,19 @@ func run(args []string, env func(string) string) error {
 		return server.ServeHTTP(ctx, cfg, srv, log)
 	}
 	return server.ServeStdio(ctx, srv)
+}
+
+// loopback reports whether addr binds somewhere only this host can reach. A
+// missing or wildcard host ("", ":8231", "0.0.0.0:8231") is not loopback: those
+// listen on every interface.
+func loopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }

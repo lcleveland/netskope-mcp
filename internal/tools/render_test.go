@@ -1,9 +1,16 @@
 package tools
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/lcleveland/netskope-mcp/internal/netskope"
 )
 
 func items(n int) []any {
@@ -63,13 +70,31 @@ func TestCapResultEnforcesByteBudget(t *testing.T) {
 	for i := range big {
 		big[i] = map[string]any{"id": i, "blob": strings.Repeat("y", 8<<10)}
 	}
-	out := capResult(map[string]any{"data": big}, 100)
-	b, err := json.Marshal(out)
+	for _, max := range []int{100, 10} { // 100 leaves the item cap unused; 10 trips it
+		out := capResult(map[string]any{"data": big}, max)
+		b, err := json.Marshal(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(b) > maxBytes {
+			t.Errorf("max=%d: encoded result is %d bytes, past the %d budget", max, len(b), maxBytes)
+		}
+	}
+}
+
+// A bare array gets no envelope to hide behind, and used to skip the byte budget
+// entirely.
+func TestBareArrayEnforcesByteBudget(t *testing.T) {
+	big := make([]any, 40)
+	for i := range big {
+		big[i] = map[string]any{"id": i, "blob": strings.Repeat("y", 8<<10)}
+	}
+	b, err := json.Marshal(capResult(big, 100))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b) > maxBytes*2 {
-		t.Fatalf("encoded result is %d bytes, well past the %d budget", len(b), maxBytes)
+	if len(b) > maxBytes {
+		t.Fatalf("encoded result is %d bytes, past the %d budget", len(b), maxBytes)
 	}
 }
 
@@ -109,5 +134,50 @@ func TestItemPathEscapesID(t *testing.T) {
 	r := Resource{Collection: "/api/v2/x"}
 	if got := r.itemPath("a b/c"); got != "/api/v2/x/a%20b%2Fc" {
 		t.Fatalf("itemPath = %q; an unescaped id could reach a different endpoint", got)
+	}
+}
+
+// itemPath escaping only matters if it survives URL assembly. It did not: the
+// client used to hand the escaped path to url.URL.Path, which holds the decoded
+// path, so %2F went out as %252F and the request landed somewhere else.
+func TestEscapedIDSurvivesTheClient(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.RequestURI
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{}`)
+	}))
+	defer srv.Close()
+
+	base, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := netskope.New(netskope.Options{BaseURL: base, Token: "t", HTTPClient: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := Resource{Name: "x", Collection: "/api/v2/x", Actions: []Action{ActionGet}}
+	if _, err := r.call(context.Background(), c, r.Actions, Input{Action: ActionGet, ID: "a b/c"}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "/api/v2/x/a%20b%2Fc"; got != want {
+		t.Fatalf("the tenant saw %q, want %q", got, want)
+	}
+}
+
+// SCIM pages with count/startIndex. Sending it "limit" bounds nothing at the
+// tenant, which is the whole point of applying a default.
+func TestListDefaultUsesTheCollectionsOwnLimitParam(t *testing.T) {
+	for _, r := range All() {
+		q := url.Values{}
+		applyListDefaults(q, r.limitParam(), r.maxItems())
+		if q.Get(r.limitParam()) == "" {
+			t.Errorf("%s: list is unbounded at the tenant", r.Name)
+		}
+		if strings.HasPrefix(r.Collection, "/api/v2/scim/") && r.limitParam() != "count" {
+			t.Errorf("%s: SCIM collection bounded with %q, want \"count\"", r.Name, r.limitParam())
+		}
 	}
 }

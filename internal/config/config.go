@@ -16,6 +16,7 @@ import (
 	"io"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -159,7 +160,7 @@ func Load(args []string, env func(string) string, stderr io.Writer) (*Config, er
 	if cfg.Groups, err = resolveGroups(f.toolGroups); err != nil {
 		return nil, err
 	}
-	if cfg.LogLevel, err = parseLevel(f.logLevel, env); err != nil {
+	if cfg.LogLevel, err = parseLevel(f.logLevel, flagSet(fs, "log-level"), env); err != nil {
 		return nil, err
 	}
 	if cfg.Token, cfg.TokenSource, err = resolveToken(f.apiTokenFile, env); err != nil {
@@ -208,10 +209,10 @@ func resolveGroups(s string) ([]string, error) {
 		if g == "" {
 			continue
 		}
-		if !contains(Groups, g) {
+		if !slices.Contains(Groups, g) {
 			return nil, fmt.Errorf("unknown tool group %q; known groups are %s", g, strings.Join(Groups, ", "))
 		}
-		if !contains(out, g) {
+		if !slices.Contains(out, g) {
 			out = append(out, g)
 		}
 	}
@@ -221,8 +222,21 @@ func resolveGroups(s string) ([]string, error) {
 	return out, nil
 }
 
-func parseLevel(s string, env func(string) string) (slog.Level, error) {
-	if v := env("NETSKOPE_MCP_LOG_LEVEL"); v != "" && s == "info" {
+// flagSet reports whether a flag was actually passed, as opposed to sitting at
+// its default. Comparing against the default value cannot tell the two apart,
+// and an explicit --log-level info must beat the environment.
+func flagSet(fs *flag.FlagSet, name string) bool {
+	seen := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			seen = true
+		}
+	})
+	return seen
+}
+
+func parseLevel(s string, explicit bool, env func(string) string) (slog.Level, error) {
+	if v := env("NETSKOPE_MCP_LOG_LEVEL"); v != "" && !explicit {
 		s = v
 	}
 	switch strings.ToLower(s) {
@@ -275,13 +289,4 @@ func resolveHTTPToken(flagPath string, env func(string) string) (string, error) 
 		return readSecretFile(p)
 	}
 	return "", nil // optional: an unauthenticated loopback listener is the default
-}
-
-func contains(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
-	}
-	return false
 }

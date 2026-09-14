@@ -2,6 +2,7 @@ package config
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -193,5 +194,34 @@ func TestConfigRedactsSecrets(t *testing.T) {
 	}
 	if !strings.Contains(s, "***") {
 		t.Fatalf("Config.String() did not redact: %s", s)
+	}
+}
+
+// The environment supplies a default; an explicit flag overrides it. Comparing
+// the flag against its default value cannot tell "unset" from "set to the
+// default", so --log-level info used to be silently overridden by the env.
+func TestLogLevelFlagBeatsEnvironment(t *testing.T) {
+	tok := writeToken(t, "t")
+	for _, tc := range []struct {
+		name string
+		args []string
+		env  string
+		want slog.Level
+	}{
+		{"env supplies the default", nil, "debug", slog.LevelDebug},
+		{"explicit flag wins", []string{"--log-level", "info"}, "debug", slog.LevelInfo},
+		{"explicit flag wins either way", []string{"--log-level", "error"}, "debug", slog.LevelError},
+		{"neither set", nil, "", slog.LevelInfo},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"--tenant", "acme", "--api-token-file", tok}, tc.args...)
+			cfg, err := Load(args, envOf(map[string]string{"NETSKOPE_MCP_LOG_LEVEL": tc.env}), io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.LogLevel != tc.want {
+				t.Fatalf("LogLevel = %v, want %v", cfg.LogLevel, tc.want)
+			}
+		})
 	}
 }

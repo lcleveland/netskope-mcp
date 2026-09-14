@@ -14,9 +14,6 @@ import (
 	"github.com/lcleveland/netskope-mcp/internal/netskope"
 )
 
-// eventToolCount is how many tools registerEvents adds, for Register's tally.
-const eventToolCount = 2
-
 // eventTypes are the datasearch indices. Anything outside this set is rejected
 // locally rather than sent, because the tenant's error for a bad type is a bare
 // 404 that reads like the endpoint is missing.
@@ -40,7 +37,8 @@ type EventSearchInput struct {
 	Offset    int    `json:"offset,omitempty" jsonschema:"records to skip, for paging through a result set"`
 }
 
-func registerEvents(s *mcp.Server, c *netskope.Client) {
+// registerEvents adds the event tools and reports how many it added.
+func registerEvents(s *mcp.Server, c *netskope.Client) int {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:  "netskope_event_search",
 		Title: "Search events",
@@ -80,6 +78,8 @@ func registerEvents(s *mcp.Server, c *netskope.Client) {
 		}
 		return nil, out, nil
 	})
+
+	return 2
 }
 
 func searchEvents(ctx context.Context, c *netskope.Client, in EventSearchInput) (any, error) {

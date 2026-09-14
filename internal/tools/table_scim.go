@@ -11,6 +11,7 @@ var scimResources = []Resource{
 		Title:      "SCIM users",
 		Collection: "/api/v2/scim/Users",
 		Actions:    crud,
+		LimitParam: "count",
 		Description: "Users provisioned into the tenant over SCIM. Endpoint: /api/v2/scim/Users.\n\n" +
 			"This is SCIM, not Netskope's own API shape: filtering uses the SCIM syntax " +
 			"(`query.filter` of `userName eq \"a@b.com\"`), paging uses `startIndex` and `count` " +
@@ -25,6 +26,7 @@ var scimResources = []Resource{
 		Title:      "SCIM groups",
 		Collection: "/api/v2/scim/Groups",
 		Actions:    crud,
+		LimitParam: "count",
 		Description: "Groups provisioned over SCIM, which NPA and inline policy rules target. " +
 			"Endpoint: /api/v2/scim/Groups.\n\n" +
 			"Bodies follow the SCIM group schema (`displayName`, `members`). Membership changes " +

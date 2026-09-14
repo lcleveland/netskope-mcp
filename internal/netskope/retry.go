@@ -2,6 +2,7 @@ package netskope
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
@@ -63,6 +64,11 @@ func (p RetryPolicy) backoff(attempt int, retryAfter time.Duration) time.Duratio
 	if d > p.Max {
 		d = p.Max
 	}
+	if d <= 0 {
+		// A caller-supplied policy may leave Base or Max at zero, and rand.Int64N
+		// panics on a non-positive bound. Retry immediately rather than crash.
+		return retryAfter
+	}
 	d = time.Duration(rand.Int64N(int64(d)) + int64(d)/2)
 	if retryAfter > d {
 		d = retryAfter
@@ -76,7 +82,8 @@ func (p RetryPolicy) backoff(attempt int, retryAfter time.Duration) time.Duratio
 // lastRetryAfter pulls the tenant's own backoff instruction out of the previous
 // failure, if it was one.
 func lastRetryAfter(err error) time.Duration {
-	if ae, ok := err.(*APIError); ok {
+	var ae *APIError
+	if errors.As(err, &ae) {
 		return ae.RetryAfter
 	}
 	return 0

@@ -17,11 +17,12 @@ const (
 	maxBytes = 60 << 10
 )
 
-// applyListDefaults supplies a limit when the caller did not, so that an
+// applyListDefaults supplies a bound when the caller did not, so that an
 // unqualified "list" is bounded at the tenant rather than in our own memory.
-func applyListDefaults(q url.Values, max int) {
-	if q.Get("limit") == "" {
-		q.Set("limit", strconv.Itoa(max))
+// param is the collection's own name for it -- SCIM says "count", not "limit".
+func applyListDefaults(q url.Values, param string, max int) {
+	if q.Get(param) == "" {
+		q.Set(param, strconv.Itoa(max))
 	}
 }
 
@@ -46,33 +47,45 @@ func capResult(v any, max int) any {
 	switch x := v.(type) {
 	case []any:
 		items, cut := capSlice(x, max)
-		if !cut {
-			return x
-		}
-		return map[string]any{"data": items, "_truncation": truncation{true, len(items), len(x), truncNote}}
+		return fit(nil, items, len(x), cut)
 
 	case map[string]any:
-		raw, ok := x["data"]
+		arr, ok := x["data"].([]any)
 		if !ok {
-			return capBytes(x, max)
-		}
-		arr, ok := raw.([]any)
-		if !ok {
-			return capBytes(x, max)
+			// A single object, or an envelope we have not seen. Nothing to trim.
+			return x
 		}
 		items, cut := capSlice(arr, max)
-		if !cut {
-			return capBytes(x, max)
-		}
-		out := make(map[string]any, len(x)+1)
-		for k, val := range x {
-			out[k] = val
-		}
-		out["data"] = items
-		out["_truncation"] = truncation{true, len(items), totalOf(x, len(arr)), truncNote}
-		return out
+		return fit(x, items, totalOf(x, len(arr)), cut)
 	}
 	return v
+}
+
+// fit applies the byte budget on top of the item budget and, if either bit, wraps
+// the result so the model is told what it got is partial.
+//
+// The byte pass is the one that earns its keep: the item cap alone lets a handful
+// of policy objects with large embedded rule sets through, and item size varies by
+// two orders of magnitude across Netskope resources. envelope is the original map
+// for a {"data": ...} response, or nil for a bare array.
+func fit(envelope map[string]any, items []any, total int, cut bool) any {
+	for len(items) > 1 && size(items) > maxBytes {
+		items = items[:len(items)/2]
+		cut = true
+	}
+	if !cut {
+		if envelope != nil {
+			return envelope
+		}
+		return items
+	}
+	out := make(map[string]any, len(envelope)+2)
+	for k, v := range envelope {
+		out[k] = v
+	}
+	out["data"] = items
+	out["_truncation"] = truncation{true, len(items), total, truncNote}
+	return out
 }
 
 func capSlice(xs []any, max int) ([]any, bool) {
@@ -87,34 +100,6 @@ func totalOf(m map[string]any, fallback int) int {
 		return int(t)
 	}
 	return fallback
-}
-
-// capBytes is the backstop for a response that is within the item budget but
-// still enormous -- a handful of policy objects with large embedded rule sets,
-// say. It halves the item count until the encoding fits.
-func capBytes(v any, max int) any {
-	if size(v) <= maxBytes {
-		return v
-	}
-	m, ok := v.(map[string]any)
-	if !ok {
-		return v
-	}
-	arr, ok := m["data"].([]any)
-	if !ok || len(arr) == 0 {
-		return v
-	}
-	n := len(arr)
-	for n > 1 && size(arr[:n]) > maxBytes {
-		n /= 2
-	}
-	out := make(map[string]any, len(m)+1)
-	for k, val := range m {
-		out[k] = val
-	}
-	out["data"] = arr[:n]
-	out["_truncation"] = truncation{true, n, totalOf(m, len(arr)), truncNote}
-	return out
 }
 
 func size(v any) int {

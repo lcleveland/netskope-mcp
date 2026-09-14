@@ -54,6 +54,14 @@ buildGoModule (finalAttrs: {
   # precisely so it stays true.
   doCheck = true;
 
+  # subPackages narrows what gets built AND, by default, what gets tested -- so
+  # with it set, checkPhase ran only ./cmd/netskope-mcp, which has almost no
+  # tests, and the entire ./internal suite was silently skipped in CI. Unset it
+  # for the check phase only: build one binary, test everything.
+  preCheck = ''
+    unset subPackages
+  '';
+
   nativeInstallCheckInputs = [ versionCheckHook ];
   versionCheckProgramArg = "--version";
   doInstallCheck = true;

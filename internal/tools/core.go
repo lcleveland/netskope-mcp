@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -45,7 +46,8 @@ func registerTenantInfo(s *mcp.Server, c *netskope.Client) {
 		case err == nil:
 			out.Reachable, out.Detail = true, "the tenant accepted the API token"
 		default:
-			if ae, ok := err.(*netskope.APIError); ok && ae.Status == http.StatusForbidden {
+			var ae *netskope.APIError
+			if errors.As(err, &ae) && ae.Status == http.StatusForbidden {
 				out.Reachable = true
 				out.Detail = "the token is valid but has no grant for the probe endpoint; " +
 					"tenant connectivity is fine and per-endpoint grants need widening"

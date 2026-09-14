@@ -68,6 +68,10 @@ type Resource struct {
 	Actions []Action
 	// MaxItems caps how many records a list may return. Zero uses the default.
 	MaxItems int
+	// LimitParam is the query parameter that bounds a list at the tenant. Zero
+	// value means "limit"; the SCIM collections page with "count" instead, and
+	// sending them "limit" bounds nothing at all.
+	LimitParam string
 }
 
 func (r Resource) itemPath(id string) string {
@@ -129,7 +133,7 @@ func (r Resource) call(ctx context.Context, c *netskope.Client, allowed []Action
 		q.Set(k, v)
 	}
 	if in.Action == ActionList {
-		applyListDefaults(q, r.maxItems())
+		applyListDefaults(q, r.limitParam(), r.maxItems())
 	}
 
 	var out any
@@ -140,6 +144,13 @@ func (r Resource) call(ctx context.Context, c *netskope.Client, allowed []Action
 		return capResult(out, r.maxItems()), nil
 	}
 	return out, nil
+}
+
+func (r Resource) limitParam() string {
+	if r.LimitParam != "" {
+		return r.LimitParam
+	}
+	return "limit"
 }
 
 func (r Resource) maxItems() int {

@@ -31,12 +31,21 @@ var policyResources = []Resource{
 			"need deploying before they affect traffic.",
 	},
 	{
-		Name:       "netskope_realtime_policy_rules",
-		Group:      "policy",
-		Title:      "Real-time protection policy rules",
+		Name:  "netskope_realtime_policy_rules",
+		Group: "policy",
+		Title: "Real-time protection policy rules",
+		// TODO: unverified, and identical to netskope_npa_policy_rules' collection --
+		// so this tool currently returns NPA private-access rules, not inline ones.
+		// Check the real inline-policy route against a tenant's own Swagger
+		// (https://<tenant>/apidocs/?include_beta_routes=1) and correct it, or drop
+		// the resource. The description below warns the model until that happens.
 		Collection: "/api/v2/policy/npa/rules",
 		Actions:    []Action{ActionList, ActionGet},
 		Description: "Inline (real-time protection) policy rules for web and cloud app traffic.\n\n" +
+			"WARNING: the endpoint behind this tool is unverified and may return NPA " +
+			"private-access rules rather than inline ones. Confirm against the tenant's own " +
+			"Swagger before relying on the result, and prefer netskope_npa_policy_rules when " +
+			"you actually want private-access policy.\n\n" +
 			"Exposed read-only: the write path for inline policy differs materially between " +
 			"tenants and a malformed rule can block all egress for every steered user. Make these " +
 			"changes in the Netskope UI, where the rule builder validates them.",

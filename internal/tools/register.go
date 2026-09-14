@@ -59,8 +59,7 @@ func Register(s *mcp.Server, c *netskope.Client, o Options) (int, error) {
 		}
 	}
 	if o.enabled("events") {
-		registerEvents(s, c)
-		n += eventToolCount
+		n += registerEvents(s, c)
 	}
 	return n, nil
 }
