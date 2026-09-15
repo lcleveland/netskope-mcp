@@ -153,8 +153,8 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
 | `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`‡, `delete`† |
-| `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get` | — read-only in code |
-| `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get` | — read-only in code |
+| `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get`§ | — read-only in code |
+| `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get`§ | — read-only in code |
 | `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
@@ -168,6 +168,10 @@ find the function to enable; under the legacy flow it is the grant list directly
 ‡ `update` on the NPA policy endpoints is sent as `PATCH`, not `PUT`: the gateway registers
 no `PUT` route at item level there. See `Resource.UpdateMethod`.
 
+§ These two grants do nothing yet: the `internetaccess` policy API is still in development
+and Netskope has to enable it per tenant, so the endpoints 403 no matter how wide the role
+is. See [tenant-side gates](#verifying-the-endpoints).
+
 A read-only deployment needs read on every row and nothing more. `netskope_reports`,
 `netskope_realtime_policy_rules` and the event tools cannot write whatever the role
 allows — the first two declare only `list` and `get` in the resource table, the event
@@ -178,7 +182,8 @@ will ever use.
 Real-time protection and NPA are separate rulebooks on separate routes, so a role scoped to
 one does not read the other: `netskope_realtime_policy_rules` needs
 `/api/v2/policy/internetaccess/*` and says nothing about private apps, and
-`netskope_npa_policy_rules` the reverse.
+`netskope_npa_policy_rules` the reverse. Granting the `internetaccess` half is not currently
+enough on its own — see the `§` note above.
 
 Tool groups you do not enable need no grants at all: their tools are never registered, so
 the endpoints are never called. The one endpoint to cover regardless is
@@ -360,10 +365,19 @@ Watch for a **200 carrying `{"status":"error"}`**. Some routes answer a missing 
 way instead of with a 404 — the client treats such a body as a failure rather than data, but
 when probing by hand a bare status code will tell you nothing is wrong.
 
-Two known tenant-side gates:
+Three known tenant-side gates:
 
 - **`npa_api_policy_enabled`** is off by default and needs Netskope support to enable. If
   every `netskope_npa_policy_rules` call 403s, that flag is why.
+- **Real-time protection policy over the API is not generally available.** The
+  `/api/v2/policy/internetaccess/*` routes are still in development at Netskope and have to
+  be enabled per tenant by Netskope, the same way `npa_api_policy_enabled` does. Until they
+  are, `netskope_realtime_policy_rules` and `netskope_realtime_policy_groups` 403 on every
+  call with *"the token has no grant for this endpoint"* — which reads exactly like a role
+  that needs widening, but no role you can build in the UI will clear it. Do not chase this
+  in the grant table. Observed on a tenant where every other group answered 200 — NPA
+  policy included — and only these two 403d, under a role that covered them. Read inline
+  policy in the Netskope UI meanwhile.
 - A role that does not cover an endpoint produces a 403 that looks identical to a bug. The
   client maps it to *"the token has no grant for this endpoint; widen the role attached to
   the service account..."* precisely so it does not.
