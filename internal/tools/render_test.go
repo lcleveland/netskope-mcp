@@ -114,6 +114,29 @@ func TestBareArrayEnforcesByteBudget(t *testing.T) {
 	}
 }
 
+// SCIM returns its collection under "Resources", not "data". While capResult
+// only knew "data", /api/v2/scim/Users skipped both caps and a whole tenant's
+// user list went out at once.
+func TestSCIMEnvelopeIsCapped(t *testing.T) {
+	in := map[string]any{
+		"Resources":    items(50),
+		"totalResults": float64(500),
+	}
+	out, ok := capResult(in, 5).(map[string]any)
+	if !ok {
+		t.Fatalf("want a map, got %T", capResult(in, 5))
+	}
+	if got := len(out["Resources"].([]any)); got != 5 {
+		t.Fatalf("Resources has %d items, want 5", got)
+	}
+	if _, dup := out["data"]; dup {
+		t.Fatal("capped items were written to `data`, leaving a stale `Resources`")
+	}
+	if tr := out["_truncation"].(truncation); tr.Total != 500 {
+		t.Fatalf("total = %d, want the SCIM totalResults 500", tr.Total)
+	}
+}
+
 func TestSingleObjectPassesThrough(t *testing.T) {
 	in := map[string]any{"id": "1", "name": "pub"}
 	out := capResult(in, 10).(map[string]any)
@@ -194,6 +217,11 @@ func TestListDefaultUsesTheCollectionsOwnLimitParam(t *testing.T) {
 		}
 		if strings.HasPrefix(r.Collection, "/api/v2/scim/") && r.limitParam() != "count" {
 			t.Errorf("%s: SCIM collection bounded with %q, want \"count\"", r.Name, r.limitParam())
+		}
+		// A live tenant ignores `count` sent without `startIndex` and returns
+		// every record, so the bound has to travel with its page origin.
+		if r.limitParam() == "count" && q.Get("startIndex") == "" {
+			t.Errorf("%s: count sent without startIndex; the tenant ignores it", r.Name)
 		}
 	}
 }
