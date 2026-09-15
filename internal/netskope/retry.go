@@ -43,7 +43,14 @@ func (p RetryPolicy) retryStatus(method string, status, attempt int) bool {
 	if status == http.StatusTooManyRequests {
 		return true
 	}
-	if status == http.StatusBadGateway || status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout {
+	// 500 is included deliberately. It is usually a deterministic application
+	// fault not worth repeating, but Netskope's Advanced Analytics routes answer
+	// a transient backend hiccup with one, and the retry clears it: observed on
+	// /reporting/aa/reports, which 500d, then timed out, then returned 61 reports
+	// untouched. The idempotent guard is what keeps this safe.
+	switch status {
+	case http.StatusInternalServerError, http.StatusBadGateway,
+		http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		return idempotent(method)
 	}
 	return false

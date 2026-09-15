@@ -117,6 +117,42 @@ func TestIdempotentVerbRetriedOnServerError(t *testing.T) {
 	}
 }
 
+// A plain 500 on a GET is retried too, not just the 502/503/504 family. The
+// Advanced Analytics routes answer a transient backend hiccup with one, and a
+// tenant that 500s once then succeeds must not surface as a failed tool call.
+func TestIdempotentVerbRetriedOnInternalServerError(t *testing.T) {
+	var n int32
+	c, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		if atomic.AddInt32(&n, 1) < 2 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+	if err := c.Do(context.Background(), http.MethodGet, "/api/v2/reporting/aa/reports", nil, nil, nil); err != nil {
+		t.Fatalf("a 500 that clears on retry still failed: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("made %d requests, want 2", n)
+	}
+}
+
+// ...and the idempotent guard still holds for 500: a POST the tenant may have
+// acted on is not repeated just because 500 joined the retryable set.
+func TestNonIdempotentVerbNotRetriedOnInternalServerError(t *testing.T) {
+	var n int32
+	c, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&n, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	if err := c.Do(context.Background(), http.MethodPost, "/api/v2/x", nil, map[string]string{"a": "b"}, nil); err == nil {
+		t.Fatal("want an error")
+	}
+	if n != 1 {
+		t.Fatalf("POST was retried %d times on 500; it must not be", n-1)
+	}
+}
+
 // A 429 IS safe to retry even for a POST: it means the tenant rejected the
 // request before acting on it.
 func TestNonIdempotentVerbRetriedOnRateLimit(t *testing.T) {
