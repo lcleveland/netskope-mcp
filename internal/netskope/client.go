@@ -201,6 +201,12 @@ func (c *Client) send(ctx context.Context, method string, u *url.URL, logPath st
 		}
 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			// Some v2 routes answer a missing object with 200 and an error
+			// envelope instead of a 4xx. Without this the envelope reaches the
+			// model as data, shaped just enough like a record to be believed.
+			if isErrorEnvelope(raw) {
+				return nil, newAPIError(method, logPath, resp, raw, c.token)
+			}
 			return raw, nil
 		}
 

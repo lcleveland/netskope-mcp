@@ -308,24 +308,55 @@ token path inside the store.
 
 ## Verifying the endpoints
 
-The resource tables are written from documentation and prior art, **not** from your tenant.
-Before relying on a group, diff it against your own Swagger:
+The resource tables are written from documentation and prior art, **not** from your tenant,
+and tenants differ in which v2 routes they expose at all. Check a group before relying on it.
+
+If your tenant serves the Swagger document, diff against it:
 
 ```sh
-curl -s -H "Netskope-API-Token: $(cat /run/secrets/netskope-api-token)" \
-  'https://acme.goskope.com/apidocs/?include_beta_routes=1' | jq -r '.paths | keys[]'
+curl -s -K ~/.netskope-curlrc 'https://acme.goskope.com/apidocs/?include_beta_routes=1' \
+  | jq -r '.paths | keys[]'
 ```
 
-A wrong path is one line in a `[]Resource` table in `internal/tools/table_*.go`, not a
-rewritten function — the tables are deliberately data for exactly this reason.
+Not every tenant has that route — it 404s on some — in which case probe the paths directly.
+The gateway distinguishes the two failures that matter, so a bare status code is enough:
+
+```sh
+for p in /api/v2/infrastructure/publishers /api/v2/policy/urllist /api/v2/scim/Users; do
+  printf '%-44s %s\n' "$p" \
+    "$(curl -s -K ~/.netskope-curlrc -o /dev/null -w '%{http_code}' "https://acme.goskope.com$p?limit=1")"
+done
+```
+
+- **200** — the route exists and the role covers it.
+- **403** — the route exists, the role does not cover it. Widen the role.
+- **404 `no Route matched with those values`** — the route is absent from this tenant.
+  Nothing you can grant will fix it.
+
+Keep the token out of `argv`: put `header = "Netskope-API-Token: ..."` in a `0400` curl
+config and pass it with `-K`, rather than interpolating `$(cat ...)` into the command line
+where `ps` can see it.
+
+Watch for a **200 carrying `{"status":"error"}`**. Some routes answer a missing object that
+way instead of with a 404 — the client treats such a body as a failure rather than data, but
+when probing by hand a bare status code will tell you nothing is wrong.
 
 Two known tenant-side gates:
 
 - **`npa_api_policy_enabled`** is off by default and needs Netskope support to enable. If
   every `netskope_npa_policy_rules` call 403s, that flag is why.
-- Per-endpoint token grants produce 403s that look identical to bugs. The client maps them
-  to *"the token has no grant for this endpoint; add it under Settings > Tools > REST API
-  v2"* precisely so they do not.
+- A role that does not cover an endpoint produces a 403 that looks identical to a bug. The
+  client maps it to *"the token has no grant for this endpoint; widen the role attached to
+  the service account..."* precisely so it does not.
+
+Routes observed absent on at least one production tenant, where the tool registers but every
+call 404s: `/api/v2/infrastructure/npa/brokers` (`netskope_local_brokers`),
+`/api/v2/policy/customcategory` (`netskope_custom_categories`),
+`/api/v2/reporting/reports` (`netskope_reports`), and the `audit` and `infrastructure`
+`datasearch` indices. They are left registered because other tenants may serve them; prune
+with `--tool-groups` if yours does not. A wrong path is one line in a `[]Resource` table in
+`internal/tools/table_*.go`, not a rewritten function — the tables are deliberately data for
+exactly this reason.
 
 ## Packaging approach
 

@@ -139,22 +139,47 @@ func TestNonIdempotentVerbRetriedOnRateLimit(t *testing.T) {
 func TestErrorHints(t *testing.T) {
 	for _, tc := range []struct {
 		status int
+		body   string
 		want   string
 	}{
-		{http.StatusUnauthorized, "token was rejected"},
-		{http.StatusForbidden, "no grant for this endpoint"},
-		{http.StatusNotFound, "no such object"},
+		{http.StatusUnauthorized, `{}`, "token was rejected"},
+		{http.StatusForbidden, `{}`, "no grant for this endpoint"},
+		{http.StatusNotFound, `{}`, "no such object"},
+		// Kong answers an absent route with a 404 that has nothing to do with
+		// the object asked for, so it must not read as "no such object".
+		{http.StatusNotFound, `{"message":"no Route matched with those values"}`, "no such API route"},
+		// The tenant answers a missing publisher with 200 and an error
+		// envelope. Do must reject it rather than hand it back as data.
+		{http.StatusOK, `{"status":"error","message":"No publisher with id '999999' is found."}`, "error envelope"},
 	} {
 		c, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(tc.status)
-			w.Write([]byte(`{}`))
+			w.Write([]byte(tc.body))
 		})
 		err := c.Do(context.Background(), http.MethodGet, "/api/v2/x", nil, nil, nil)
 		if err == nil {
-			t.Fatalf("status %d: want an error", tc.status)
+			t.Fatalf("status %d body %s: want an error", tc.status, tc.body)
 		}
 		if !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("status %d: error %q does not explain the cause (want %q)", tc.status, err, tc.want)
+		}
+	}
+}
+
+// A 2xx payload that merely carries a status field, or is a JSON array, is real
+// data and must survive the error-envelope check.
+func TestErrorEnvelopeDoesNotEatRealPayloads(t *testing.T) {
+	for _, body := range []string{
+		`{"status":"success","data":{"publishers":[]}}`,
+		`[{"id":1,"name":"Allowed URLs"}]`,
+		`{"data":{"status":"error"}}`,
+	} {
+		c, _ := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte(body))
+		})
+		var out any
+		if err := c.Do(context.Background(), http.MethodGet, "/api/v2/x", nil, nil, &out); err != nil {
+			t.Errorf("body %s: rejected a real payload: %v", body, err)
 		}
 	}
 }

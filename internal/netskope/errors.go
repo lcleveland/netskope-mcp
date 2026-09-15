@@ -1,6 +1,7 @@
 package netskope
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -52,11 +53,16 @@ func (e *APIError) Error() string {
 // a bug unless the message says otherwise.
 func (e *APIError) hint() string {
 	switch e.Status {
+	case 200, 201, 202:
+		return "the tenant returned a success status carrying an error envelope; the message is the real failure"
 	case 401:
 		return "the API token was rejected; check that apiTokenFile holds a current REST API v2 token"
 	case 403:
 		return "the token has no grant for this endpoint; widen the role attached to the service account (Settings > Administration > Roles), or the token's endpoint grants if it predates RBAC v3"
 	case 404:
+		if strings.Contains(e.Message, "no Route matched") {
+			return "this tenant has no such API route; the endpoint is unavailable here or the path is wrong -- not a permissions problem"
+		}
 		return "no such object"
 	case 429:
 		return "rate limited by the tenant after exhausting retries; narrow the query or lower --rate-limit"
@@ -82,4 +88,14 @@ func truncate(b []byte, secret string) string {
 		return s[:maxSnippet] + "... (truncated)"
 	}
 	return s
+}
+
+// isErrorEnvelope reports whether a 2xx body is really one of Netskope's error
+// envelopes. Only a top-level {"status":"error"} counts: a JSON array or a
+// payload that merely carries a status field is left alone.
+func isErrorEnvelope(raw []byte) bool {
+	var env struct {
+		Status string `json:"status"`
+	}
+	return json.Unmarshal(raw, &env) == nil && env.Status == "error"
 }

@@ -28,7 +28,7 @@ var eventTypes = []string{"application", "audit", "page", "infrastructure", "net
 // that looks like nothing at all from here. datasearch is a stateless GET and
 // is the right primitive for ad-hoc investigation.
 type EventSearchInput struct {
-	Type      string `json:"type" jsonschema:"the event index to search: application, audit, page, infrastructure, network, alert or incident"`
+	Type      string `json:"type,omitempty" jsonschema:"the event index to search: application, audit, page, infrastructure, network, alert or incident"`
 	Query     string `json:"query,omitempty" jsonschema:"a Skope IT Query Language expression, e.g. user eq 'a@b.com' and app eq 'Dropbox'"`
 	StartTime string `json:"starttime,omitempty" jsonschema:"start of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to 24 hours ago"`
 	EndTime   string `json:"endtime,omitempty" jsonschema:"end of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to now"`
@@ -65,7 +65,7 @@ func registerEvents(s *mcp.Server, c *netskope.Client) int {
 		Title: "Search alerts",
 		Description: "Search the alert index: DLP matches, malware detections, anomalies, " +
 			"compromised credentials, policy violations and watchlist hits. A convenience " +
-			"wrapper over netskope_event_search with type=alert.\n\n" +
+			"wrapper over netskope_event_search with type=alert; any `type` you pass is ignored.\n\n" +
 			"Useful query fields: `alert_type`, `severity`, `user`, `app`, `policy`, `action`. " +
 			"Start broad over a short window, then narrow -- alert volume varies enormously " +
 			"between tenants.",
