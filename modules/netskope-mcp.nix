@@ -111,18 +111,19 @@ in
       example = "/run/secrets/netskope-api-token";
       description = ''
         Absolute path to a runtime file holding a Netskope REST API v2 token
-        (created under Settings > Administration > Administrators & Roles >
-        Service Account, and scoped under Settings > Tools > REST API v2).
+        (under RBAC v3: create a role under Settings > Administration > Roles,
+        then a Service Account under Settings > Administration > Administrators
+        & Roles > Administrators that carries it).
 
         Read through systemd credentials at runtime, so the value never enters
         the unit definition, the Nix store, the process environment, argv, or a
         nixos-rebuild log. Provide it with sops-nix, agenix, or a plain
         root-owned 0400 file; this module does not care which.
 
-        The token's per-endpoint grants bound everything this server can do, and
-        they are the outer safety net that {option}`allowDestructive` sits
-        inside. Prefer a read-only token unless you specifically intend to let a
-        model change the tenant.
+        The role attached to the token bounds everything this server can do, and
+        it is the outer safety net that {option}`allowDestructive` sits inside.
+        Prefer a role with no Manage permissions unless you specifically intend
+        to let a model change the tenant.
       '';
     };
 

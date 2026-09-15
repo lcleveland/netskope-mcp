@@ -46,15 +46,16 @@ func (e *APIError) Error() string {
 
 // hint turns a status code into something a model can act on rather than
 // surface verbatim to a user. The 403 case is the one that earns its keep:
-// Netskope v2 tokens carry per-endpoint grants, so a 403 almost always means
-// "the token is fine, this endpoint just was not ticked" -- which looks
-// identical to a bug unless the message says otherwise.
+// a v2 token's reach is set by the role on its service account (or, for a
+// pre-RBAC-v3 token, its endpoint grants), so a 403 almost always means "the
+// token is fine, this endpoint is outside its role" -- which looks identical to
+// a bug unless the message says otherwise.
 func (e *APIError) hint() string {
 	switch e.Status {
 	case 401:
 		return "the API token was rejected; check that apiTokenFile holds a current REST API v2 token"
 	case 403:
-		return "the token has no grant for this endpoint; add it under Settings > Tools > REST API v2"
+		return "the token has no grant for this endpoint; widen the role attached to the service account (Settings > Administration > Roles), or the token's endpoint grants if it predates RBAC v3"
 	case 404:
 		return "no such object"
 	case 429:

@@ -99,20 +99,53 @@ Pointing `apiTokenFile` into the store is legal and warns loudly.
 
 ### Getting a token
 
-Netskope tenant UI → **Settings → Administration → Administrators & Roles → Service
-Account**, then scope it under **Settings → Tools → REST API v2**. Grants are
-per-endpoint.
+Netskope replaced the token flow with **RBAC v3**, and which flow your tenant uses decides
+where you go. A tenant banner reading *"RBACv3 has been enabled for your tenants, please use
+the Admin Users screen to create tokens henceforth"* means the first flow below.
+
+#### RBAC v3
+
+Permissions live on a **role**, and a role grants *functions* — abstract capabilities —
+rather than endpoints. You no longer tick `/api/v2/...` paths directly:
+
+1. **Settings → Administration → Roles.** Create a role and enable only the functions the
+   work needs. Each function shows the API v2 endpoints it covers, in the right-hand panel
+   and behind the information icon beside it. That panel is the authoritative endpoint →
+   function mapping, and it is how you turn the endpoint list below into a set of functions
+   to enable.
+2. **Pick a level per function:** **View** (read), **Manage** (read and write), or
+   **Manage & Apply** (read and write, changes applied immediately). *Max Permissions* means
+   an inherently read-only function will not offer Manage at all.
+3. **Optionally set the role's IP allowlist**, which overrides the global allowlist.
+4. **Settings → Administration → Administrators & Roles → Administrators → Service
+   Account.** Name the account, attach the role, set the token expiry in days, click
+   **Create**. The role must already exist.
+5. **Copy the token when it appears — it is shown once.** You can defer generation and come
+   back to it from the ellipsis on the service account's row; the API Credential column
+   there also revokes, regenerates and re-expires it.
+
+Roughly, **View** is the old Read and **Manage** is the old Read + Write, so the table below
+still tells you which endpoints need more than read.
+
+#### Legacy tokens
+
+The old flow — **Settings → Tools → REST API v2**, with per-endpoint Read / Read + Write
+grants — is what tokens created before the switch used, and those tokens keep working until
+they expire. On an RBAC v3 tenant that screen no longer issues tokens or endpoint grants,
+and an existing token cannot be extended or reissued: edit, revoke or delete only. So treat
+a legacy token's expiry date as a migration deadline, not a renewal date.
 
 **Scope the token read-only unless you specifically intend a model to change the tenant.**
-The token's own grants are the defence that does not depend on this server being correct;
-`allowDestructive` is the inner one.
+The role attached to the service account is the defence that does not depend on this server
+being correct; `allowDestructive` is the inner one.
 
 #### Grants the token needs
 
-Every endpoint the server touches, what a **Read** grant on it buys, and what adding
-**Read + Write** buys on top. Grants are per-endpoint, so this is a menu, not a package:
+Every endpoint the server touches, what read access to it buys, and what read + write buys
+on top. Under RBAC v3 you feed the endpoint column into the role editor's endpoint panel to
+find the function to enable; under the legacy flow it is the grant list directly:
 
-| Endpoint | Tool | With **Read** | Adding **Write** |
+| Endpoint | Tool | **View** / Read | **Manage** / Read + Write adds |
 |---|---|---|---|
 | `/api/v2/infrastructure/publishers` | `netskope_publishers` (also the `netskope_tenant_info` probe) | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/infrastructure/publisherupgradeprofiles` | `netskope_publisher_upgrade_profiles` | `list`, `get` | `create`, `update`, `delete`† |
@@ -131,49 +164,59 @@ Every endpoint the server touches, what a **Read** grant on it buys, and what ad
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
 
-A read-only token needs **Read** on every row and nothing more. `netskope_reports`,
-`netskope_realtime_policy_rules` and the event tools cannot write whatever the token
+A read-only deployment needs read on every row and nothing more. `netskope_reports`,
+`netskope_realtime_policy_rules` and the event tools cannot write whatever the role
 allows — the first two declare only `list` and `get` in the resource table, the event
-tools are a bare GET — so **Write** on `/api/v2/reporting/reports` or
-`/api/v2/events/datasearch/*` grants capability nothing will ever use. Note that
-`/api/v2/policy/npa/rules` backs two tools: **Write** there is reachable through
-`netskope_npa_policy_rules` no matter that `netskope_realtime_policy_rules` is read-only.
+tools are a bare GET — so **Manage** on a function covering only
+`/api/v2/reporting/reports` or `/api/v2/events/datasearch/*` grants capability nothing
+will ever use. Note that `/api/v2/policy/npa/rules` backs two tools: write access there is
+reachable through `netskope_npa_policy_rules` no matter that `netskope_realtime_policy_rules`
+is read-only.
 
 Tool groups you do not enable need no grants at all: their tools are never registered, so
-the endpoints are never called. The one endpoint to grant regardless is
+the endpoints are never called. The one endpoint to cover regardless is
 `/api/v2/infrastructure/publishers`, which the `core` group probes to prove the token works
-— without **Read** there, `netskope_tenant_info` reports a valid token with too narrow a
-grant rather than a healthy tenant.
+— without read access there, `netskope_tenant_info` reports a valid token with too narrow a
+role rather than a healthy tenant.
+
+One consequence of the function-level model worth planning around: a single function can
+cover more endpoints than you wanted, and a role is the only place to say no. If enabling
+the function that covers `/api/v2/steering/apps/private` also brings endpoints this server
+never calls, that is a wider token than the table implies — read the endpoint panel before
+accepting it, and split across two roles and two service accounts if the extra reach
+matters.
 
 #### If you want writes
 
 Two independent gates, and both must open:
 
-1. **The token grant.** Add **Write** to only the endpoints you intend to change. This is
-   the gate that does not depend on this server being correct, and the only one that stops
-   `update` — which can disable a policy rule or repoint a private app at a different host.
+1. **The role.** Set **Manage** on only the functions covering endpoints you intend to
+   change, and leave the rest at **View**. This is the gate that does not depend on this
+   server being correct, and the only one that stops `update` — which can disable a policy
+   rule or repoint a private app at a different host.
 2. **`allowDestructive`.** Leave it `false` and `delete` is never registered, whatever the
-   token permits; set it `true` and `delete` becomes callable on every enabled resource
-   whose token grant allows it. There is no per-resource form of this flag, so a tenant
-   where deletes are acceptable for private app tags but not for policy rules is expressed
-   by withholding **Write** on `/api/v2/policy/npa/rules`, not by a setting here.
+   role permits; set it `true` and `delete` becomes callable on every enabled resource whose
+   role allows it. There is no per-resource form of this flag, so a tenant where deletes are
+   acceptable for private app tags but not for policy rules is expressed by keeping the
+   policy function at **View**, not by a setting here.
 
-The narrow-write posture worth copying: **Write** on the one or two endpoints the work
-actually touches, **Read** everywhere else, `allowDestructive = false`. Widen one endpoint
+The narrow-write posture worth copying: **Manage** on the one or two functions the work
+actually touches, **View** everywhere else, `allowDestructive = false`. Widen one function
 at a time.
 
-Two things to check in the tenant UI rather than assume, because the grant list is not
-uniform in its granularity:
+Two things to check in the role editor rather than assume, because neither the function
+boundaries nor the grant granularity are uniform:
 
-- whether `/api/v2/events/datasearch/` is one grant or one per index (`application`,
-  `audit`, `page`, `infrastructure`, `network`, `alert`, `incident`) — the path is built
-  per-type on each call, so if they are separate you need every index you intend to query;
-- whether `/api/v2/steering/apps/private/tags` is granted separately from its parent path.
+- whether `/api/v2/events/datasearch/` arrives as one endpoint or one per index
+  (`application`, `audit`, `page`, `infrastructure`, `network`, `alert`, `incident`) — the
+  path is built per-type on each call, so if they are separate you need every index you
+  intend to query;
+- whether `/api/v2/steering/apps/private/tags` is covered separately from its parent path.
 
 A missing grant is a 403, which the client maps to a message naming the endpoint, so the
-practical route is to grant **Read** on `publishers`, confirm `netskope_tenant_info` passes,
+practical route is to grant read on `publishers`, confirm `netskope_tenant_info` passes,
 then widen until nothing 403s. The two gates fail differently, which is how you tell them
-apart: a `create` or `update` the token does not cover is a 403 from the tenant, while a
+apart: a `create` or `update` the role does not cover is a 403 from the tenant, while a
 `delete` blocked by `allowDestructive` never leaves the process — it comes back as `action
 "delete" is not enabled for <tool>; available actions are ...`.
 

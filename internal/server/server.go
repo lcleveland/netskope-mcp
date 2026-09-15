@@ -42,7 +42,7 @@ func New(cfg *config.Config, c *netskope.Client, log *slog.Logger) (*mcp.Server,
 func instructions(cfg *config.Config) string {
 	s := "Tools for a Netskope tenant at " + cfg.BaseURL.String() + ", over REST API v2.\n\n" +
 		"Call netskope_tenant_info first if anything fails: it distinguishes a wrong tenant " +
-		"URL from a rejected token from a token with too narrow a set of per-endpoint grants.\n\n" +
+		"URL from a rejected token from a token with too narrow a role.\n\n" +
 		"This is production security infrastructure. NPA policy rule order is significant and " +
 		"the first match wins, so read the current ordering before inserting a rule. URL list " +
 		"and custom category edits do not affect live traffic until they are deployed.\n\n"

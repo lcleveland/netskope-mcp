@@ -33,7 +33,7 @@ func registerTenantInfo(s *mcp.Server, c *netskope.Client) {
 			"token is accepted. Returns the tenant base URL and whether a probe request " +
 			"succeeded.\n\n" +
 			"Call this first when anything else fails: it separates a wrong tenant URL from a " +
-			"rejected token from a token whose per-endpoint grants are too narrow, which " +
+			"rejected token from a token whose role is too narrow, which " +
 			"otherwise all look the same.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: ptr(true)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, TenantInfoOutput, error) {
@@ -50,7 +50,7 @@ func registerTenantInfo(s *mcp.Server, c *netskope.Client) {
 			if errors.As(err, &ae) && ae.Status == http.StatusForbidden {
 				out.Reachable = true
 				out.Detail = "the token is valid but has no grant for the probe endpoint; " +
-					"tenant connectivity is fine and per-endpoint grants need widening"
+					"tenant connectivity is fine and the token's role needs widening"
 				return nil, out, nil
 			}
 			out.Detail = err.Error()
