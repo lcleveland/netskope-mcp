@@ -22,11 +22,11 @@ var policyResources = []Resource{
 		Name:       "netskope_custom_categories",
 		Group:      "policy",
 		Title:      "Custom URL categories",
-		Collection: "/api/v2/policy/customcategory",
+		Collection: "/api/v2/profiles/customcategories",
 		Actions:    crud,
 		Description: "Custom URL categories, which group URL lists into something policy can match " +
 			"by name alongside Netskope's built-in categories. " +
-			"Endpoint: /api/v2/policy/customcategory.\n\n" +
+			"Endpoint: /api/v2/profiles/customcategories.\n\n" +
 			"Bodies take `name` and the included/excluded URL list ids. Like URL lists, changes " +
 			"need deploying before they affect traffic.",
 	},
@@ -34,20 +34,30 @@ var policyResources = []Resource{
 		Name:  "netskope_realtime_policy_rules",
 		Group: "policy",
 		Title: "Real-time protection policy rules",
-		// TODO: unverified, and identical to netskope_npa_policy_rules' collection --
-		// so this tool currently returns NPA private-access rules, not inline ones.
-		// Check the real inline-policy route against a tenant's own Swagger
-		// (https://<tenant>/apidocs/?include_beta_routes=1) and correct it, or drop
-		// the resource. The description below warns the model until that happens.
-		Collection: "/api/v2/policy/npa/rules",
+		// The UI's "Real-time Protection" is "internet access" in REST API v2;
+		// there is no /policy/realtime or /policy/inline route.
+		Collection: "/api/v2/policy/internetaccess/rules",
 		Actions:    []Action{ActionList, ActionGet},
-		Description: "Inline (real-time protection) policy rules for web and cloud app traffic.\n\n" +
-			"WARNING: the endpoint behind this tool is unverified and may return NPA " +
-			"private-access rules rather than inline ones. Confirm against the tenant's own " +
-			"Swagger before relying on the result, and prefer netskope_npa_policy_rules when " +
-			"you actually want private-access policy.\n\n" +
-			"Exposed read-only: the write path for inline policy differs materially between " +
-			"tenants and a malformed rule can block all egress for every steered user. Make these " +
-			"changes in the Netskope UI, where the rule builder validates them.",
+		Description: "Inline policy rules for web and cloud app traffic -- what the UI calls " +
+			"Real-time Protection. Endpoint: /api/v2/policy/internetaccess/rules.\n\n" +
+			"Rule order is significant and the first match wins, within the ordered groups that " +
+			"netskope_realtime_policy_groups lists. This returns the current configuration, " +
+			"which can include rules edited but not yet deployed; /rules/applied is what is live " +
+			"on the data plane.\n\n" +
+			"For private-access policy use netskope_npa_policy_rules instead: these two are " +
+			"different rulebooks and a private app will not appear here.\n\n" +
+			"Exposed read-only: a malformed rule can block all egress for every steered user. " +
+			"Make these changes in the Netskope UI, where the rule builder validates them.",
+	},
+	{
+		Name:       "netskope_realtime_policy_groups",
+		Group:      "policy",
+		Title:      "Real-time protection policy groups",
+		Collection: "/api/v2/policy/internetaccess/groups",
+		Actions:    []Action{ActionList, ActionGet},
+		Description: "The ordered groups that real-time protection rules live in. " +
+			"Endpoint: /api/v2/policy/internetaccess/groups.\n\n" +
+			"Group order determines rule evaluation order across groups, so read this first when " +
+			"a rule is not taking effect. Read-only for the same reason as the rules themselves.",
 	},
 }

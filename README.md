@@ -149,17 +149,18 @@ find the function to enable; under the legacy flow it is the grant list directly
 |---|---|---|---|
 | `/api/v2/infrastructure/publishers` | `netskope_publishers` (also the `netskope_tenant_info` probe) | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/infrastructure/publisherupgradeprofiles` | `netskope_publisher_upgrade_profiles` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/infrastructure/npa/brokers` | `netskope_local_brokers` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/infrastructure/lbrokers` | `netskope_local_brokers` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
 | `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`‡, `delete`† |
-| `/api/v2/policy/npa/rules` | `netskope_realtime_policy_rules` | `list`, `get` | — read-only in code |
+| `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get` | — read-only in code |
+| `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get` | — read-only in code |
 | `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/policy/customcategory` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/reporting/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
+| `/api/v2/reporting/aa/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
 | `/api/v2/events/datasearch/*` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
@@ -171,10 +172,13 @@ A read-only deployment needs read on every row and nothing more. `netskope_repor
 `netskope_realtime_policy_rules` and the event tools cannot write whatever the role
 allows — the first two declare only `list` and `get` in the resource table, the event
 tools are a bare GET — so **Manage** on a function covering only
-`/api/v2/reporting/reports` or `/api/v2/events/datasearch/*` grants capability nothing
-will ever use. Note that `/api/v2/policy/npa/rules` backs two tools: write access there is
-reachable through `netskope_npa_policy_rules` no matter that `netskope_realtime_policy_rules`
-is read-only.
+`/api/v2/reporting/aa/reports` or `/api/v2/events/datasearch/*` grants capability nothing
+will ever use.
+
+Real-time protection and NPA are separate rulebooks on separate routes, so a role scoped to
+one does not read the other: `netskope_realtime_policy_rules` needs
+`/api/v2/policy/internetaccess/*` and says nothing about private apps, and
+`netskope_npa_policy_rules` the reverse.
 
 Tool groups you do not enable need no grants at all: their tools are never registered, so
 the endpoints are never called. The one endpoint to cover regardless is
@@ -263,7 +267,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 |---|---|
 | `core` | `netskope_tenant_info` |
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
-| `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_realtime_policy_rules` |
+| `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` |
 | `events` | `netskope_event_search`, `netskope_alert_search` |
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
@@ -364,14 +368,18 @@ Two known tenant-side gates:
   client maps it to *"the token has no grant for this endpoint; widen the role attached to
   the service account..."* precisely so it does not.
 
-Routes observed absent on at least one production tenant, where the tool registers but every
-call 404s: `/api/v2/infrastructure/npa/brokers` (`netskope_local_brokers`),
-`/api/v2/policy/customcategory` (`netskope_custom_categories`),
-`/api/v2/reporting/reports` (`netskope_reports`), and the `audit` and `infrastructure`
-`datasearch` indices. They are left registered because other tenants may serve them; prune
-with `--tool-groups` if yours does not. A wrong path is one line in a `[]Resource` table in
-`internal/tools/table_*.go`, not a rewritten function — the tables are deliberately data for
-exactly this reason.
+A 404 here has meant a wrong path in this table far more often than a missing route on the
+tenant. Every path corrected so far was ours: `npa/brokers` → `infrastructure/lbrokers`,
+`reporting/reports` → `reporting/aa/reports`, `policy/customcategory` →
+`profiles/customcategories`, and `policy/npa/rules` → `policy/internetaccess/rules` for
+real-time protection, which had been pointed at the NPA rulebook and so returned
+private-access rules for an inline query. The tenant's own Swagger
+(`https://<tenant>/apidocs/`, admin UI session — an API token will not open it) is the
+authority; the public docs do not enumerate these. Genuinely absent: the `audit` and
+`infrastructure` `datasearch` indices, which exist only on the `dataexport` family.
+
+A wrong path is one line in a `[]Resource` table in `internal/tools/table_*.go`, not a
+rewritten function — the tables are deliberately data for exactly this reason.
 
 ## Packaging approach
 
