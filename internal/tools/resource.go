@@ -8,7 +8,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -45,7 +44,7 @@ func (a Action) Write() bool {
 type Input struct {
 	Action Action            `json:"action" jsonschema:"the operation to perform; see the tool description for which are available"`
 	ID     string            `json:"id,omitempty" jsonschema:"the object id; required for get, update and delete"`
-	Body   json.RawMessage   `json:"body,omitempty" jsonschema:"a JSON object holding the fields to set; required for create and update"`
+	Body   map[string]any    `json:"body,omitempty" jsonschema:"a JSON object holding the fields to set; required for create and update"`
 	Query  map[string]string `json:"query,omitempty" jsonschema:"extra query parameters such as fields, filter, limit or offset"`
 }
 
@@ -68,6 +67,11 @@ type Resource struct {
 	Actions []Action
 	// MaxItems caps how many records a list may return. Zero uses the default.
 	MaxItems int
+	// UpdateMethod overrides the verb used for update. Empty means PUT.
+	// Netskope registers gateway routes per method+path, and the NPA policy
+	// endpoints expose only PATCH at item level: a PUT there is a 404 from the
+	// gateway, which reads as "no such rule" rather than "wrong verb".
+	UpdateMethod string
 	// LimitParam is the query parameter that bounds a list at the tenant. Zero
 	// value means "limit"; the SCIM collections page with "count" instead, and
 	// sending them "limit" bounds nothing at all.
@@ -79,6 +83,14 @@ func (r Resource) itemPath(id string) string {
 		return r.ItemPath(id)
 	}
 	return strings.TrimRight(r.Collection, "/") + "/" + url.PathEscape(id)
+}
+
+// updateMethod is the verb for ActionUpdate, defaulting to PUT.
+func (r Resource) updateMethod() string {
+	if r.UpdateMethod != "" {
+		return r.UpdateMethod
+	}
+	return http.MethodPut
 }
 
 // route maps an action onto an HTTP verb and path, and validates that the input
@@ -105,7 +117,7 @@ func (r Resource) route(in Input) (method, path string, body any, err error) {
 		if len(in.Body) == 0 {
 			return "", "", nil, fmt.Errorf("action %q requires `body`", in.Action)
 		}
-		return http.MethodPut, r.itemPath(in.ID), in.Body, nil
+		return r.updateMethod(), r.itemPath(in.ID), in.Body, nil
 	case ActionDelete:
 		if in.ID == "" {
 			return "", "", nil, fmt.Errorf("action %q requires `id`", in.Action)

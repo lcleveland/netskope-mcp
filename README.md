@@ -152,9 +152,9 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/infrastructure/npa/brokers` | `netskope_local_brokers` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
-| `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/npa/rules` | `netskope_realtime_policy_rules` | `list`, `get` | — read-only in code |
-| `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/policy/customcategory` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`, `delete`† |
@@ -163,6 +163,9 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/events/datasearch/*` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
+
+‡ `update` on the NPA policy endpoints is sent as `PATCH`, not `PUT`: the gateway registers
+no `PUT` route at item level there. See `Resource.UpdateMethod`.
 
 A read-only deployment needs read on every row and nothing more. `netskope_reports`,
 `netskope_realtime_policy_rules` and the event tools cannot write whatever the role
@@ -185,6 +188,13 @@ the function that covers `/api/v2/steering/apps/private` also brings endpoints t
 never calls, that is a wider token than the table implies — read the endpoint panel before
 accepting it, and split across two roles and two service accounts if the extra reach
 matters.
+
+It cuts the other way too, and this one is measured rather than inferred: granting **Manage**
+on the NPA section covered `/api/v2/steering/*` and `/api/v2/infrastructure/*` but *not*
+`/api/v2/policy/npa/*`, whose writes still returned 403. The NPA tools in the table above
+span at least two functions, so "NPA is writable" is not a conclusion you can draw from one
+grant — verify per endpoint with the probe in
+[Verifying the endpoints](#verifying-the-endpoints).
 
 #### If you want writes
 
@@ -332,6 +342,11 @@ done
 - **403** — the route exists, the role does not cover it. Widen the role.
 - **404 `no Route matched with those values`** — the route is absent from this tenant.
   Nothing you can grant will fix it.
+
+Routes are registered **per method**, not per path, so check the verb you actually need.
+On one tenant `GET /api/v2/policy/npa/rules/{id}` is routed while `PUT` to the same path
+404s and only `PATCH` exists — which is why `Resource.UpdateMethod` exists. A 404 on a
+write whose `GET` works means the wrong verb, not a missing object.
 
 Keep the token out of `argv`: put `header = "Netskope-API-Token: ..."` in a `0400` curl
 config and pass it with `-K`, rather than interpolating `$(cat ...)` into the command line

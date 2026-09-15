@@ -116,7 +116,7 @@ func TestRouteValidatesArguments(t *testing.T) {
 		want string
 	}{
 		{"get without id", Input{Action: ActionGet}, "requires `id`"},
-		{"update without id", Input{Action: ActionUpdate, Body: json.RawMessage(`{}`)}, "requires `id`"},
+		{"update without id", Input{Action: ActionUpdate, Body: map[string]any{"a": 1}}, "requires `id`"},
 		{"update without body", Input{Action: ActionUpdate, ID: "1"}, "requires `body`"},
 		{"create without body", Input{Action: ActionCreate}, "requires `body`"},
 		{"delete without id", Input{Action: ActionDelete}, "requires `id`"},
@@ -178,6 +178,26 @@ func TestListDefaultUsesTheCollectionsOwnLimitParam(t *testing.T) {
 		}
 		if strings.HasPrefix(r.Collection, "/api/v2/scim/") && r.limitParam() != "count" {
 			t.Errorf("%s: SCIM collection bounded with %q, want \"count\"", r.Name, r.limitParam())
+		}
+	}
+}
+
+// The NPA policy endpoints route only PATCH at item level, so update must not
+// fall back to the PUT default that every other resource uses.
+func TestUpdateMethodOverride(t *testing.T) {
+	for _, tc := range []struct {
+		r    Resource
+		want string
+	}{
+		{Resource{Collection: "/api/v2/x", Actions: crud}, "PUT"},
+		{Resource{Collection: "/api/v2/policy/npa/rules", Actions: crud, UpdateMethod: "PATCH"}, "PATCH"},
+	} {
+		got, _, _, err := tc.r.route(Input{Action: ActionUpdate, ID: "1", Body: map[string]any{"a": 1}})
+		if err != nil {
+			t.Fatalf("%s: %v", tc.r.Collection, err)
+		}
+		if got != tc.want {
+			t.Errorf("%s: update uses %s, want %s", tc.r.Collection, got, tc.want)
 		}
 	}
 }

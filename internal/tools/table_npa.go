@@ -73,7 +73,11 @@ var npaResources = []Resource{
 		Description: "Tags used to group private applications, which policy rules can then target " +
 			"collectively. Endpoint: /api/v2/steering/apps/private/tags.\n\n" +
 			"Tagging is how a rule stays correct as apps are added: a rule written against a tag " +
-			"picks up new apps automatically, where one written against app ids does not.",
+			"picks up new apps automatically, where one written against app ids does not.\n\n" +
+			"`create` assigns tags to existing private apps rather than making a free-standing " +
+			"tag, so the body needs both: `{\"ids\": [\"<private_app_id>\"], \"tags\": " +
+			"[{\"tag_name\": \"<name>\"}]}`. A body carrying only a name is rejected with " +
+			"422 `unfound parameters ids or tags`.",
 	},
 	{
 		Name:       "netskope_npa_policy_rules",
@@ -81,6 +85,8 @@ var npaResources = []Resource{
 		Title:      "NPA policy rules",
 		Collection: "/api/v2/policy/npa/rules",
 		Actions:    crud,
+		// PUT has no gateway route here; only PATCH does.
+		UpdateMethod: "PATCH",
 		Description: "Access rules deciding which users and devices reach which private apps. " +
 			"Endpoint: /api/v2/policy/npa/rules.\n\n" +
 			"Bodies take `rule_name`, `description`, `enabled`, `action` (allow or block), " +
@@ -94,11 +100,12 @@ var npaResources = []Resource{
 			"turn it on.",
 	},
 	{
-		Name:       "netskope_npa_policy_groups",
-		Group:      "npa",
-		Title:      "NPA policy groups",
-		Collection: "/api/v2/policy/npa/policygroups",
-		Actions:    crud,
+		Name:         "netskope_npa_policy_groups",
+		Group:        "npa",
+		Title:        "NPA policy groups",
+		Collection:   "/api/v2/policy/npa/policygroups",
+		Actions:      crud,
+		UpdateMethod: "PATCH",
 		Description: "Policy groups: the ordered containers that NPA rules live in. " +
 			"Endpoint: /api/v2/policy/npa/policygroups.\n\n" +
 			"Group order determines rule evaluation order across groups, so this is the coarse " +
