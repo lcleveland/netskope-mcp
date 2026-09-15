@@ -77,7 +77,10 @@ func fit(envelope map[string]any, items []any, total int, cut bool) any {
 		if envelope != nil {
 			return envelope
 		}
-		return items
+		// MCP requires structuredContent to be an object, so a top-level array
+		// response (/api/v2/policy/urllist) has to be wrapped or the client
+		// rejects the whole result. The cut path below already returns a map.
+		return map[string]any{"data": items}
 	}
 	out := make(map[string]any, len(envelope)+2)
 	for k, v := range envelope {

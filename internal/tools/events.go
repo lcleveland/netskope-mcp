@@ -17,7 +17,12 @@ import (
 // eventTypes are the datasearch indices. Anything outside this set is rejected
 // locally rather than sent, because the tenant's error for a bad type is a bare
 // 404 that reads like the endpoint is missing.
-var eventTypes = []string{"application", "audit", "page", "infrastructure", "network", "alert", "incident"}
+//
+// `audit` and `infrastructure` are deliberately absent. They are real event
+// types, but only on the dataexport family; datasearch has no route for them and
+// a live tenant 404s both. Listing them here turned an unsupported index into
+// what looked like a broken server.
+var eventTypes = []string{"application", "page", "network", "alert", "incident"}
 
 // EventSearchInput drives a datasearch query.
 //
@@ -28,7 +33,7 @@ var eventTypes = []string{"application", "audit", "page", "infrastructure", "net
 // that looks like nothing at all from here. datasearch is a stateless GET and
 // is the right primitive for ad-hoc investigation.
 type EventSearchInput struct {
-	Type      string `json:"type,omitempty" jsonschema:"the event index to search: application, audit, page, infrastructure, network, alert or incident"`
+	Type      string `json:"type,omitempty" jsonschema:"the event index to search: application, page, network, alert or incident"`
 	Query     string `json:"query,omitempty" jsonschema:"a Skope IT Query Language expression, e.g. user eq 'a@b.com' and app eq 'Dropbox'"`
 	StartTime string `json:"starttime,omitempty" jsonschema:"start of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to 24 hours ago"`
 	EndTime   string `json:"endtime,omitempty" jsonschema:"end of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to now"`
@@ -45,8 +50,11 @@ func registerEvents(s *mcp.Server, c *netskope.Client) int {
 		Description: "Search Netskope event data with the Skope IT Query Language. " +
 			"Endpoint: /api/v2/events/datasearch/{type}.\n\n" +
 			"Indices: `application` (cloud app activity), `page` (web requests), `network` " +
-			"(NPA and firewall flows), `audit` (administrator actions in the tenant), " +
-			"`infrastructure` (publisher and appliance health), `alert` and `incident`.\n\n" +
+			"(NPA and firewall flows), `alert` and `incident`.\n\n" +
+			"Administrator actions (`audit`) and appliance health (`infrastructure`) are NOT " +
+			"searchable here: they exist only on the dataexport iterator, which this server does " +
+			"not expose because reading it consumes a cursor shared with the tenant's SIEM. Read " +
+			"those in the Netskope UI under Skope IT.\n\n" +
 			"Query syntax is field/operator/value joined with `and`/`or`, e.g. " +
 			"`user eq 'a@b.com' and activity eq 'Upload'`. Always bound the window: an " +
 			"unqualified search over a busy tenant is slow and returns little of use. " +

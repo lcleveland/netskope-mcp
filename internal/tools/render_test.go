@@ -51,6 +51,22 @@ func TestCapResultTruncatesBareArray(t *testing.T) {
 	}
 }
 
+// MCP rejects a non-object structuredContent, so even an untruncated bare array
+// has to come back wrapped: /api/v2/policy/urllist failed schema validation
+// whenever the tenant had few enough lists to stay under the cap.
+func TestCapResultWrapsShortBareArray(t *testing.T) {
+	out, ok := capResult(items(3), 10).(map[string]any)
+	if !ok {
+		t.Fatalf("want a wrapped map, got %T", out)
+	}
+	if got := len(out["data"].([]any)); got != 3 {
+		t.Fatalf("returned %d items, want 3", got)
+	}
+	if _, marked := out["_truncation"]; marked {
+		t.Fatal("a result within budget was marked truncated")
+	}
+}
+
 func TestCapResultLeavesSmallResultsAlone(t *testing.T) {
 	in := map[string]any{"status": "success", "data": items(3)}
 	out := capResult(in, 10)

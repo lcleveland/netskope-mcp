@@ -42,10 +42,10 @@ var npaResources = []Resource{
 		Name:       "netskope_local_brokers",
 		Group:      "npa",
 		Title:      "NPA local brokers",
-		Collection: "/api/v2/infrastructure/npa/brokers",
+		Collection: "/api/v2/infrastructure/lbrokers",
 		Actions:    crud,
 		Description: "Local brokers, which keep NPA traffic inside a site instead of hairpinning it " +
-			"through the Netskope cloud. Endpoint: /api/v2/infrastructure/npa/brokers.\n\n" +
+			"through the Netskope cloud. Endpoint: /api/v2/infrastructure/lbrokers.\n\n" +
 			"Bodies take `name` and the broker's registration details. Most tenants have none; an " +
 			"empty list here is normal rather than a sign of a failed query.",
 	},
