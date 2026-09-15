@@ -107,6 +107,76 @@ per-endpoint.
 The token's own grants are the defence that does not depend on this server being correct;
 `allowDestructive` is the inner one.
 
+#### Grants the token needs
+
+Every endpoint the server touches, what a **Read** grant on it buys, and what adding
+**Read + Write** buys on top. Grants are per-endpoint, so this is a menu, not a package:
+
+| Endpoint | Tool | With **Read** | Adding **Write** |
+|---|---|---|---|
+| `/api/v2/infrastructure/publishers` | `netskope_publishers` (also the `netskope_tenant_info` probe) | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/infrastructure/publisherupgradeprofiles` | `netskope_publisher_upgrade_profiles` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/infrastructure/npa/brokers` | `netskope_local_brokers` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
+| `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/npa/rules` | `netskope_realtime_policy_rules` | `list`, `get` | — read-only in code |
+| `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/customcategory` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/reporting/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
+| `/api/v2/events/datasearch/*` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
+
+† `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
+
+A read-only token needs **Read** on every row and nothing more. `netskope_reports`,
+`netskope_realtime_policy_rules` and the event tools cannot write whatever the token
+allows — the first two declare only `list` and `get` in the resource table, the event
+tools are a bare GET — so **Write** on `/api/v2/reporting/reports` or
+`/api/v2/events/datasearch/*` grants capability nothing will ever use. Note that
+`/api/v2/policy/npa/rules` backs two tools: **Write** there is reachable through
+`netskope_npa_policy_rules` no matter that `netskope_realtime_policy_rules` is read-only.
+
+Tool groups you do not enable need no grants at all: their tools are never registered, so
+the endpoints are never called. The one endpoint to grant regardless is
+`/api/v2/infrastructure/publishers`, which the `core` group probes to prove the token works
+— without **Read** there, `netskope_tenant_info` reports a valid token with too narrow a
+grant rather than a healthy tenant.
+
+#### If you want writes
+
+Two independent gates, and both must open:
+
+1. **The token grant.** Add **Write** to only the endpoints you intend to change. This is
+   the gate that does not depend on this server being correct, and the only one that stops
+   `update` — which can disable a policy rule or repoint a private app at a different host.
+2. **`allowDestructive`.** Leave it `false` and `delete` is never registered, whatever the
+   token permits; set it `true` and `delete` becomes callable on every enabled resource
+   whose token grant allows it. There is no per-resource form of this flag, so a tenant
+   where deletes are acceptable for private app tags but not for policy rules is expressed
+   by withholding **Write** on `/api/v2/policy/npa/rules`, not by a setting here.
+
+The narrow-write posture worth copying: **Write** on the one or two endpoints the work
+actually touches, **Read** everywhere else, `allowDestructive = false`. Widen one endpoint
+at a time.
+
+Two things to check in the tenant UI rather than assume, because the grant list is not
+uniform in its granularity:
+
+- whether `/api/v2/events/datasearch/` is one grant or one per index (`application`,
+  `audit`, `page`, `infrastructure`, `network`, `alert`, `incident`) — the path is built
+  per-type on each call, so if they are separate you need every index you intend to query;
+- whether `/api/v2/steering/apps/private/tags` is granted separately from its parent path.
+
+A missing grant is a 403, which the client maps to a message naming the endpoint, so the
+practical route is to grant **Read** on `publishers`, confirm `netskope_tenant_info` passes,
+then widen until nothing 403s. The two gates fail differently, which is how you tell them
+apart: a `create` or `update` the token does not cover is a 403 from the tenant, while a
+`delete` blocked by `allowDestructive` never leaves the process — it comes back as `action
+"delete" is not enabled for <tool>; available actions are ...`.
+
 ## Write safety
 
 `allowDestructive` defaults to `false`, and when false the delete actions are **not
