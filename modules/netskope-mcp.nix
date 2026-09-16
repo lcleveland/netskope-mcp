@@ -61,7 +61,7 @@ let
   ]
   ++ [
     "--tool-groups"
-    (lib.concatStringsSep "," cfg.toolGroups)
+    (lib.concatStringsSep "," (cfg.toolGroups ++ optional cfg.enableInternetAccess "internetaccess"))
     "--request-timeout"
     cfg.requestTimeout
     "--log-level"
@@ -169,6 +169,27 @@ in
         Which tool families to register. Narrowing this is not only about safety:
         every registered tool costs context in the client's tool list, so a
         deployment that only cares about Private Access should say so.
+
+        The real-time protection tools are not in this list; they have their own
+        {option}`enableInternetAccess` switch.
+      '';
+    };
+
+    enableInternetAccess = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Register the real-time protection policy tools
+        (`netskope_realtime_policy_rules` and `netskope_realtime_policy_groups`,
+        which read `/api/v2/policy/internetaccess/*`).
+
+        Off by default because that API is still in development at Netskope and
+        has to be enabled per tenant by Netskope, the same way
+        `npa_api_policy_enabled` does for the NPA policy routes. Until it is,
+        every call returns 403 with *"the token has no grant for this endpoint"*
+        -- which reads like a role that needs widening, but no role you can build
+        in the UI will clear it. A tool that always fails is worse than one the
+        model was never shown, so turn this on once the routes answer.
       '';
     };
 
@@ -312,7 +333,7 @@ in
           message = "services.netskope-mcp.group must be set when user is set.";
         }
         {
-          assertion = cfg.toolGroups != [ ];
+          assertion = cfg.toolGroups != [ ] || cfg.enableInternetAccess;
           message = "services.netskope-mcp.toolGroups is empty: the server would expose no tools.";
         }
         {

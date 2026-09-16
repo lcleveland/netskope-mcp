@@ -99,6 +99,11 @@ in
       # Destructive actions are off unless asked for.
       refute "--allow-destructive" cmd
 
+      # So are the in-development internetaccess tools: the default tool-groups
+      # list must not carry them.
+      check "--tool-groups core,npa,policy,events,scim,reporting" cmd
+      refute "internetaccess" cmd
+
       touch $out
     '';
 
@@ -118,6 +123,23 @@ in
       ${config.systemd.services.netskope-mcp.serviceConfig.ExecStart}
       EOF
       grep -qF -- "--allow-destructive" cmd || { echo "allowDestructive did not reach the binary"; cat cmd; exit 1; }
+      touch $out
+    '';
+
+  # enableInternetAccess must append the group rather than replace the list:
+  # turning the real-time tools on must not cost you the rest of the surface.
+  module-enable-internetaccess =
+    let
+      config = ok "module-enable-internetaccess" (
+        evalModule (lib.recursiveUpdate base { services.netskope-mcp.enableInternetAccess = true; })
+      );
+    in
+    pkgs.runCommand "netskope-mcp-enable-internetaccess" { } ''
+      cat > cmd <<'EOF'
+      ${config.systemd.services.netskope-mcp.serviceConfig.ExecStart}
+      EOF
+      grep -qF -- "--tool-groups core,npa,policy,events,scim,reporting,internetaccess" cmd || {
+        echo "enableInternetAccess did not reach the binary intact"; cat cmd; exit 1; }
       touch $out
     '';
 

@@ -29,10 +29,22 @@ const (
 	ModeHTTP  Mode = "http"
 )
 
-// Groups are the tool families that can be registered. Narrowing them is not
-// only about safety: every registered tool costs context in the client's
-// tools/list, so a tenant that only cares about NPA should say so.
-var Groups = []string{"core", "npa", "policy", "events", "scim", "reporting"}
+// DefaultGroups are the tool families registered when --tool-groups is not
+// given. Narrowing them is not only about safety: every registered tool costs
+// context in the client's tools/list, so a tenant that only cares about NPA
+// should say so.
+var DefaultGroups = []string{"core", "npa", "policy", "events", "scim", "reporting"}
+
+// Groups are every family --tool-groups accepts. Anything here but not in
+// DefaultGroups is opt-in and has to be named explicitly, because it only works
+// on a tenant that has been set up for it, and a tool that 403s on every call is
+// worse than no tool at all:
+//
+//   - "internetaccess": the real-time protection policy tools. That API is
+//     still in development at Netskope and has to be enabled per tenant by
+//     Netskope, so until it is, every call 403s with what reads like a role
+//     problem and no role can fix it. Turn it on once the routes answer.
+var Groups = append(slices.Clone(DefaultGroups), "internetaccess")
 
 // Config is the fully resolved configuration. Its String and LogValue methods
 // redact the secrets, so logging a Config by accident cannot leak one.
@@ -117,7 +129,9 @@ func Load(args []string, env func(string) string, stderr io.Writer) (*Config, er
 	fs.StringVar(&f.addr, "addr", "127.0.0.1:8231", "listen address for --http")
 	fs.StringVar(&f.path, "path", "/mcp", "URL path the MCP endpoint is mounted at")
 	fs.BoolVar(&f.allowDestructive, "allow-destructive", false, "register delete actions; off by default")
-	fs.StringVar(&f.toolGroups, "tool-groups", strings.Join(Groups, ","), "comma-separated tool groups to register")
+	fs.StringVar(&f.toolGroups, "tool-groups", strings.Join(DefaultGroups, ","),
+		"comma-separated tool groups to register; known groups are "+strings.Join(Groups, ", ")+
+			", of which any not in the default must be named explicitly")
 	fs.DurationVar(&f.requestTimeout, "request-timeout", 30*time.Second, "timeout for a single Netskope API request")
 	fs.StringVar(&f.logLevel, "log-level", "info", "debug, info, warn or error")
 	fs.BoolVar(&f.version, "version", false, "print the version and exit")

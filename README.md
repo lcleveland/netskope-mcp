@@ -153,8 +153,8 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
 | `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`‡, `delete`† |
-| `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get`§ | — read-only in code |
-| `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get`§ | — read-only in code |
+| `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get`§ | — read-only in code, opt-in§ |
+| `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get`§ | — read-only in code, opt-in§ |
 | `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
@@ -272,13 +272,19 @@ model picks well from ~20 well-described tools and poorly from ~90.
 |---|---|
 | `core` | `netskope_tenant_info` |
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
-| `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` |
+| `policy` | `netskope_url_lists`, `netskope_custom_categories` |
+| `internetaccess` | `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` — **not registered by default**§ |
 | `events` | `netskope_event_search`, `netskope_alert_search` |
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
 
 Narrow the surface with `toolGroups` — it is not only a safety knob, since every registered
 tool costs context in the client's tool list.
+
+§ `internetaccess` is the one group not registered by default, because until Netskope
+enables those routes on your tenant every call to them 403s — see the `§` note above — and a
+tool that always fails is worse than one the model was never shown. Turn it on with
+`enableInternetAccess = true` (or `--tool-groups ...,internetaccess`) once the routes answer.
 
 `netskope_tenant_info` is the one to call first when anything fails: it separates a wrong
 tenant URL from a rejected token from a token whose per-endpoint grants are too narrow,
@@ -312,6 +318,7 @@ list as a complete one, which is worse than an error.
 | `apiTokenFile` | **required**; runtime path to the REST API v2 token |
 | `allowDestructive` (default `false`) | register delete actions |
 | `toolGroups` (default: all) | `core`, `npa`, `policy`, `events`, `scim`, `reporting` |
+| `enableInternetAccess` (default `false`) | register the real-time protection policy tools |
 | `listenAddress` (default `127.0.0.1`) / `port` (default `8231`) / `path` (default `/mcp`) | where the endpoint binds |
 | `bearerTokenFile` | shared secret required as `Authorization: Bearer`; effectively mandatory off loopback |
 | `openFirewall` (default `false`) | open `port`; asserted against a loopback `listenAddress` |

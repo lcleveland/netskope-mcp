@@ -32,7 +32,7 @@ var policyResources = []Resource{
 	},
 	{
 		Name:  "netskope_realtime_policy_rules",
-		Group: "policy",
+		Group: "internetaccess",
 		Title: "Real-time protection policy rules",
 		// The UI's "Real-time Protection" is "internet access" in REST API v2;
 		// there is no /policy/realtime or /policy/inline route.
@@ -51,7 +51,7 @@ var policyResources = []Resource{
 	},
 	{
 		Name:       "netskope_realtime_policy_groups",
-		Group:      "policy",
+		Group:      "internetaccess",
 		Title:      "Real-time protection policy groups",
 		Collection: "/api/v2/policy/internetaccess/groups",
 		Actions:    []Action{ActionList, ActionGet},

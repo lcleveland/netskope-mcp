@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,6 +17,11 @@ import (
 )
 
 func testServer(t *testing.T, allowDestructive bool) *mcp.Server {
+	t.Helper()
+	return testServerWithGroups(t, config.Groups, allowDestructive)
+}
+
+func testServerWithGroups(t *testing.T, groups []string, allowDestructive bool) *mcp.Server {
 	t.Helper()
 	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -31,7 +37,7 @@ func testServer(t *testing.T, allowDestructive bool) *mcp.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := &config.Config{BaseURL: u, Groups: config.Groups, AllowDestructive: allowDestructive, Path: "/mcp"}
+	cfg := &config.Config{BaseURL: u, Groups: groups, AllowDestructive: allowDestructive, Path: "/mcp"}
 	s, n, err := New(cfg, c, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -133,4 +139,32 @@ func mustJSON(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// The internetaccess API is still in development and has to be enabled per
+// tenant by Netskope, so on most tenants those tools can only 403 -- the default
+// configuration must not register them, and naming the group must.
+func TestInternetAccessIsOptIn(t *testing.T) {
+	const gated = "netskope_realtime_policy_rules"
+
+	if names := toolNames(t, testServerWithGroups(t, config.DefaultGroups, false)); slices.Contains(names, gated) {
+		t.Fatalf("%s was registered by the default tool groups %v", gated, config.DefaultGroups)
+	}
+	optedIn := append(slices.Clone(config.DefaultGroups), "internetaccess")
+	if names := toolNames(t, testServerWithGroups(t, optedIn, false)); !slices.Contains(names, gated) {
+		t.Fatalf("%s was not registered after opting in; got %v", gated, names)
+	}
+}
+
+func toolNames(t *testing.T, s *mcp.Server) []string {
+	t.Helper()
+	res, err := connect(t, s).ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(res.Tools))
+	for i, tool := range res.Tools {
+		names[i] = tool.Name
+	}
+	return names
 }
