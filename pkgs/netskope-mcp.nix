@@ -32,7 +32,7 @@ buildGoModule (finalAttrs: {
     ];
   };
 
-  vendorHash = "sha256-xWVLVyxy6+Howd+mfNvxKbE9K39x7t5mU8iAGHprciI=";
+  vendorHash = "sha256-u6gYQO9elwgy2MPPYpRpcOPAWvgYb9YeXmIauIxv4vw=";
 
   subPackages = [ "cmd/netskope-mcp" ];
 
