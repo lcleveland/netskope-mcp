@@ -60,7 +60,8 @@ func (e *APIError) hint() string {
 	case 403:
 		// Unlicensed features also 403, and no role change will fix those.
 		body := strings.ToLower(e.Message + " " + e.Snippet)
-		if strings.Contains(body, "licens") || strings.Contains(body, "not available for this tenant") {
+		if strings.Contains(body, "licens") || strings.Contains(body, "not available for this tenant") ||
+			strings.Contains(body, "not enabled for this tenant") {
 			return "this feature is not licensed or enabled on the tenant; Netskope support or the account team has to turn it on -- not a role problem"
 		}
 		return "the route exists but refused this token: either the role on the service account does not cover it (Settings > Administration > Roles; a legacy token's endpoint grants), or the feature or its API is not enabled on this tenant, which only Netskope support can change"
