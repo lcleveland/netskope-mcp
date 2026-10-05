@@ -156,8 +156,26 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get`§ | — read-only in code, opt-in§ |
 | `/api/v2/policy/internetaccess/groups` | `netskope_realtime_policy_groups` | `list`, `get`§ | — read-only in code, opt-in§ |
 | `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
-| `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `deploy`, `delete`† |
+| `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/profiles/destinations` | `netskope_destination_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/profiles/networks` | `netskope_network_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/profiles/serviceobjects` | `netskope_service_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/profiles/dns` | `netskope_dns_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `delete`† |
+| `/api/v2/profiles/remoteproxies` | `netskope_remote_proxies` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/policy/domainfrontings` | `netskope_domain_frontings` | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/steering/ipsec/tunnels` | `netskope_ipsec_tunnels` | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/steering/gre/tunnels` | `netskope_gre_tunnels` | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/services/dlp/profiles` | `netskope_dlp_profiles` | `list`, `get` | `create`, `update`, `deploy`, `delete`† |
+| `/api/v2/services/dlp/rules/content` | `netskope_dlp_rules` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/services/dlp/fileprofiles` | `netskope_dlp_file_profiles` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/services/dlp/entities/dataidentifiers` | `netskope_dlp_data_identifiers` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/incidents/watchlists` | `netskope_watchlists` | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/incidents/update` | `netskope_incident_update` | — | `update`‡ |
+| `/api/v2/deviceclassification/rules`, `/tags` | `netskope_device_classification_rules`, `_tags` (opt-in) | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/ips/status`, `/allowlist`, `/signatureoverrides` | `netskope_ips_*` (opt-in) | `get` | `update` |
+| `/api/v2/aig/aiproviders`, `/mcpservers`, `/ratelimits`, `/tokengroups` | `netskope_aig_*` (opt-in) | `list`, `get` | `create`, `update`‡, `delete`† |
+| any other `/api/v2/` route | `netskope_api` | GET, POST to `get*` lookups | — read-only in code |
 | `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/reporting/aa/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
@@ -165,8 +183,11 @@ find the function to enable; under the legacy flow it is the grant list directly
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
 
-‡ `update` on the NPA policy endpoints is sent as `PATCH`, not `PUT`: the gateway registers
-no `PUT` route at item level there. See `Resource.UpdateMethod`.
+‡ `update` is sent as `PATCH`, not `PUT`: the gateway registers no `PUT` route at item level
+there. See `Resource.UpdateMethod`.
+
+`deploy` pushes every pending change in that collection live; `revert` discards one object's
+pending edits. Profile edits do nothing to traffic until deployed.
 
 § These two grants do nothing yet: the `internetaccess` policy API is still in development
 and Netskope has to enable it per tenant, so the endpoints 403 no matter how wide the role
@@ -265,24 +286,33 @@ a read-only token, not a flag here.
 
 ## Tools
 
-16 tools by default, shaped one-per-resource with an `action` enum rather than one per
+30 tools by default (41 with every opt-in group), shaped one-per-resource with an `action` enum rather than one per
 endpoint. That is a deliberate trade: the community Netskope MCP exposes 84 tools, and a
 model picks well from ~20 well-described tools and poorly from ~90.
 
 | Group | Tools |
 |---|---|
-| `core` | `netskope_tenant_info` |
+| `core` | `netskope_tenant_info`, `netskope_api` (read any other `/api/v2/` route: GET, or POST to a `get*` lookup; refuses the dataexport iterator and credential-returning routes) |
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
-| `policy` | `netskope_url_lists`, `netskope_custom_categories` |
+| `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_destination_profiles`, `netskope_network_profiles`, `netskope_service_profiles`, `netskope_dns_profiles`, `netskope_remote_proxies`, `netskope_domain_frontings` |
 | `internetaccess` | `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` — **not registered by default**§ |
 | `events` | `netskope_event_search`, `netskope_alert_search` |
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
+| `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
+| `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` |
+| `incidents` | `netskope_watchlists`, `netskope_incident_update` |
+| `devices` | `netskope_device_classification_rules`, `netskope_device_classification_tags` — **opt-in** |
+| `ips` | `netskope_ips_status`, `netskope_ips_allowlist`, `netskope_ips_signature_overrides` — **opt-in**: tenant-wide threat blocking |
+| `aig` | `netskope_aig_ai_providers`, `netskope_aig_mcp_servers`, `netskope_aig_rate_limits`, `netskope_aig_token_groups` — **opt-in** |
 
 Narrow the surface with `toolGroups` — it is not only a safety knob, since every registered
 tool costs context in the client's tool list.
 
-§ `internetaccess` is the one group not registered by default, because until Netskope
+`devices`, `ips` and `aig` are not registered by default either: add them to `toolGroups`
+when the tenant uses them. `ips` in particular changes threat blocking for every user.
+
+§ `internetaccess` is not registered by default because until Netskope
 enables those routes on your tenant every call to them 403s — see the `§` note above — and a
 tool that always fails is worse than one the model was never shown. Turn it on with
 `enableInternetAccess = true` (or `--tool-groups ...,internetaccess`) once the routes answer.
@@ -318,7 +348,7 @@ list as a complete one, which is worse than an error.
 | `tenant` / `baseUrl` | tenant short name, or a full URL for a regional tenant — exactly one |
 | `apiTokenFile` | **required**; runtime path to the REST API v2 token |
 | `allowDestructive` (default `false`) | register delete actions |
-| `toolGroups` (default: all) | `core`, `npa`, `policy`, `events`, `scim`, `reporting` |
+| `toolGroups` | default `core`, `npa`, `policy`, `events`, `scim`, `reporting`, `steering`, `dlp`, `incidents`; opt-in `devices`, `ips`, `aig` |
 | `enableInternetAccess` (default `false`) | register the real-time protection policy tools |
 | `listenAddress` (default `127.0.0.1`) / `port` (default `8231`) / `path` (default `/mcp`) | where the endpoint binds |
 | `bearerTokenFile` | shared secret required as `Authorization: Bearer`; effectively mandatory off loopback |

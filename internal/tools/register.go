@@ -33,6 +33,12 @@ func All() []Resource {
 	rs = append(rs, policyResources...)
 	rs = append(rs, scimResources...)
 	rs = append(rs, reportingResources...)
+	rs = append(rs, steeringResources...)
+	rs = append(rs, dlpResources...)
+	rs = append(rs, incidentResources...)
+	rs = append(rs, deviceResources...)
+	rs = append(rs, ipsResources...)
+	rs = append(rs, aigResources...)
 	return rs
 }
 
@@ -44,7 +50,8 @@ func Register(s *mcp.Server, c *netskope.Client, o Options) (int, error) {
 	n := 0
 	if o.enabled("core") {
 		registerTenantInfo(s, c)
-		n++
+		registerAPI(s, c)
+		n += 2
 	}
 	for _, r := range All() {
 		if !o.enabled(r.Group) {

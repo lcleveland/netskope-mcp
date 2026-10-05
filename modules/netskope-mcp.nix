@@ -150,6 +150,12 @@ in
           "events"
           "scim"
           "reporting"
+          "steering"
+          "dlp"
+          "incidents"
+          "devices"
+          "ips"
+          "aig"
         ]
       );
       default = [
@@ -159,6 +165,9 @@ in
         "events"
         "scim"
         "reporting"
+        "steering"
+        "dlp"
+        "incidents"
       ];
       example = [
         "core"
@@ -170,6 +179,8 @@ in
         every registered tool costs context in the client's tool list, so a
         deployment that only cares about Private Access should say so.
 
+        `devices`, `ips` and `aig` are accepted but not in the default: add them
+        explicitly. `ips` in particular changes threat blocking tenant-wide.
         The real-time protection tools are not in this list; they have their own
         {option}`enableInternetAccess` switch.
       '';
