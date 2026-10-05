@@ -12,6 +12,14 @@ const pendingNote = "\n\nEdits sit pending until `deploy`, which pushes every pe
 	"collection live; `revert` discards one object's pending edits. An edit that is never " +
 	"deployed appears to have done nothing."
 
+// liveNote replaces pendingNote where the tenant was seen to apply API writes at
+// once: create, update and delete all came back `applied`, revert 409d and
+// deploy pushed nothing. Deploy still matters for edits staged in the UI.
+const liveNote = "\n\nCreate, update and delete through this API take effect IMMEDIATELY: there is no " +
+	"pending stage to review or back out of. `deploy` only pushes edits someone staged in " +
+	"the admin console, and needs a body naming them: `{\"ids\": [<ids>]}`. `revert` " +
+	"discards one object's staged console edit; it 409s on anything not pending."
+
 var policyResources = []Resource{
 	{
 		Name:       "netskope_url_lists",
@@ -40,7 +48,7 @@ var policyResources = []Resource{
 			"something policy can match by name alongside Netskope's built-in categories. " +
 			"Endpoint: /api/v2/profiles/customcategories.\n\n" +
 			"Bodies take `name` and the included/excluded list or profile ids. A URL list that is " +
-			"still pending create cannot be included (400) until it is deployed." + pendingNote,
+			"still pending create cannot be included (400) until it is deployed." + liveNote,
 	},
 	{
 		Name:         "netskope_destination_profiles",
@@ -49,6 +57,8 @@ var policyResources = []Resource{
 		Collection:   "/api/v2/profiles/destinations",
 		Actions:      deployable,
 		UpdateMethod: "PATCH",
+		// The tenant 400s a limit above 100.
+		MaxItems: 100,
 		Description: "Destination profiles: named sets of domains, URLs and IPs that policy and " +
 			"custom categories match on; the successor to URL lists. " +
 			"Endpoint: /api/v2/profiles/destinations.\n\n" +
@@ -57,7 +67,7 @@ var policyResources = []Resource{
 			"PATCH {id}/values, which this tool does not send. `update` cannot change `values` at " +
 			"all (400); it edits name, description and labels. " +
 			"Check what a URL matches with netskope_api POST " +
-			"/api/v2/profiles/destinations/getevaluation." + pendingNote,
+			"/api/v2/profiles/destinations/getevaluation." + liveNote,
 	},
 	{
 		Name:         "netskope_network_profiles",
@@ -81,7 +91,8 @@ var policyResources = []Resource{
 		Description: "Service profiles: named protocol/port sets for firewall policy. " +
 			"Endpoint: /api/v2/profiles/serviceobjects.\n\n" +
 			"Create bodies need `name`, `description` and `protocols`. A protocol with no ports " +
-			"means any port: omit the port key rather than sending an empty list." + pendingNote,
+			"means any port: omit the port key rather than sending an empty list." + liveNote +
+			" Service profile deploy also requires `change_note`.",
 	},
 	{
 		Name:         "netskope_dns_profiles",
@@ -90,6 +101,8 @@ var policyResources = []Resource{
 		Collection:   "/api/v2/profiles/dns",
 		Actions:      []Action{ActionList, ActionGet, ActionCreate, ActionUpdate, ActionDelete, ActionDeploy},
 		UpdateMethod: "PATCH",
+		// The tenant 400s a limit above 150.
+		MaxItems: 150,
 		Description: "DNS security profiles: domain category, record type and tunnelling " +
 			"controls applied to DNS traffic. Endpoint: /api/v2/profiles/dns.\n\n" +
 			"Create bodies need `name`. Edits sit pending until `deploy`, whose body names what " +
