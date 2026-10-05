@@ -44,7 +44,8 @@ func Register(s *mcp.Server, c *netskope.Client, o Options) (int, error) {
 	n := 0
 	if o.enabled("core") {
 		registerTenantInfo(s, c)
-		n++
+		registerAPI(s, c)
+		n += 2
 	}
 	for _, r := range All() {
 		if !o.enabled(r.Group) {

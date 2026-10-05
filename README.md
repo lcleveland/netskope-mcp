@@ -271,7 +271,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 
 | Group | Tools |
 |---|---|
-| `core` | `netskope_tenant_info` |
+| `core` | `netskope_tenant_info`, `netskope_api` (read any other `/api/v2/` route: GET, or POST to a `get*` lookup; refuses the dataexport iterator and credential-returning routes) |
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
 | `policy` | `netskope_url_lists`, `netskope_custom_categories` |
 | `internetaccess` | `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` — **not registered by default**§ |
