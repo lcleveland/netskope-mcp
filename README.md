@@ -300,7 +300,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
 | `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
-| `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` |
+| `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` — **opt-in**: the API is still in development at Netskope |
 | `incidents` | `netskope_watchlists`, `netskope_incident_update` |
 | `devices` | `netskope_device_classification_rules`, `netskope_device_classification_tags` — **opt-in** |
 | `ips` | `netskope_ips_status`, `netskope_ips_allowlist`, `netskope_ips_signature_overrides` — **opt-in**: tenant-wide threat blocking |
@@ -309,8 +309,10 @@ model picks well from ~20 well-described tools and poorly from ~90.
 Narrow the surface with `toolGroups` — it is not only a safety knob, since every registered
 tool costs context in the client's tool list.
 
-`devices`, `ips` and `aig` are not registered by default either: add them to `toolGroups`
-when the tenant uses them. `ips` in particular changes threat blocking for every user.
+`dlp`, `devices`, `ips` and `aig` are not registered by default either: add them to
+`toolGroups` when the tenant uses them. `dlp` is off for the same reason as
+`internetaccess`: Netskope marks `/api/v2/services/dlp` as still under development, and
+until the account team enables it every call 403s. `ips` in particular changes threat blocking for every user.
 
 § `internetaccess` is not registered by default because until Netskope
 enables those routes on your tenant every call to them 403s — see the `§` note above — and a
@@ -386,7 +388,9 @@ done
 ```
 
 - **200** — the route exists and the role covers it.
-- **403** — the route exists, the role does not cover it. Widen the role.
+- **403** — the route exists and refused the token. Either the role does not cover it, or
+  the feature or its API is not enabled on the tenant (see the gates below). If the role is
+  already full access, it is the tenant, and only Netskope support can change it.
 - **404 `no Route matched with those values`** — the route is absent from this tenant.
   Nothing you can grant will fix it.
 
@@ -413,14 +417,22 @@ Three known tenant-side gates:
   `/api/v2/policy/internetaccess/*` routes are still in development at Netskope and have to
   be enabled per tenant by Netskope, the same way `npa_api_policy_enabled` does. Until they
   are, `netskope_realtime_policy_rules` and `netskope_realtime_policy_groups` 403 on every
-  call with *"the token has no grant for this endpoint"* — which reads exactly like a role
+  call with a 403 — which reads exactly like a role
   that needs widening, but no role you can build in the UI will clear it. Do not chase this
-  in the grant table. Observed on a tenant where every other group answered 200 — NPA
+  in the grant table. Even the documented, non-beta `GET .../internetaccess/defaultaction`
+  answers 403 *"Feature not enabled for this tenant"* until Netskope turns the feature on,
+  and Swagger marks `rules` *"still under development and not ready for use"*. Observed on a tenant where every other group answered 200 — NPA
   policy included — and only these two 403d, under a role that covered them. Read inline
   policy in the Netskope UI meanwhile.
-- A role that does not cover an endpoint produces a 403 that looks identical to a bug. The
-  client maps it to *"the token has no grant for this endpoint; widen the role attached to
-  the service account..."* precisely so it does not.
+- **The DLP API is not generally available either.** Swagger marks `/api/v2/services/dlp/*`
+  *"still under development and not ready for use"*; the account team enables it per
+  tenant. Until then every DLP call 403s with `DLP_API_ERROR` *"Permission Error"*, under a
+  full-access role and on a tenant with live DLP incidents.
+- A 403 looks identical to a bug, and the body rarely says whether the role or the tenant
+  refused. The client says "not licensed" when the body mentions a license, and otherwise
+  names both causes. Under a full-access role, read every 403 as a tenant gate: on one
+  such tenant the DLP, DNS profile, remote proxy and AI Gateway routes all 403d, DLP
+  despite live DLP incidents, so a licensed feature does not imply its API is enabled.
 
 A 404 here has meant a wrong path in this table far more often than a missing route on the
 tenant. Every path corrected so far was ours: `npa/brokers` → `infrastructure/lbrokers`,

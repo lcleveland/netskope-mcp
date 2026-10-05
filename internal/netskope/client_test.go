@@ -2,6 +2,7 @@ package netskope
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -179,7 +180,12 @@ func TestErrorHints(t *testing.T) {
 		want   string
 	}{
 		{http.StatusUnauthorized, `{}`, "token was rejected"},
-		{http.StatusForbidden, `{}`, "no grant for this endpoint"},
+		{http.StatusForbidden, `{}`, "role on the service account does not cover it"},
+		// Unlicensed features 403 too; widening the role would not help.
+		{http.StatusForbidden, `{"message":"forbidden: This is a licensed feature, please contact Netskope support for enablement"}`, "not licensed"},
+		{http.StatusForbidden, `{"message":"Signature Override feature or Threat Hunting license is not enabled."}`, "not licensed"},
+		{http.StatusForbidden, `{"errorMsg":"Advanced UBA is not available for this tenant"}`, "not licensed"},
+		{http.StatusForbidden, `{"data":null,"msg":"Feature not enabled for this tenant","status":"error"}`, "not licensed"},
 		{http.StatusNotFound, `{}`, "no such object"},
 		// Kong answers an absent route with a 404 that has nothing to do with
 		// the object asked for, so it must not read as "no such object".
@@ -289,5 +295,20 @@ func TestContextCancellationStopsRetries(t *testing.T) {
 	}
 	if d := time.Since(start); d > 5*time.Second {
 		t.Fatalf("retries ignored the context deadline: took %s", d)
+	}
+}
+
+// Incident ids exceed 2^53; decoding into any must not round them through float64.
+func TestLargeIntegersSurviveDecoding(t *testing.T) {
+	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"incident_id":3469501103500996123}`))
+	})
+	var out any
+	if err := c.Do(context.Background(), http.MethodGet, "/api/v2/x", nil, nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(out)
+	if want := `{"incident_id":3469501103500996123}`; string(b) != want {
+		t.Errorf("round trip = %s, want %s", b, want)
 	}
 }

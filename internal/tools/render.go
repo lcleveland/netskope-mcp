@@ -118,7 +118,12 @@ func capSlice(xs []any, max int) ([]any, bool) {
 
 func totalOf(m map[string]any, fallback int) int {
 	for _, k := range []string{"total", "totalResults"} {
-		if t, ok := m[k].(float64); ok {
+		switch t := m[k].(type) {
+		case json.Number:
+			if n, err := t.Int64(); err == nil {
+				return int(n)
+			}
+		case float64:
 			return int(t)
 		}
 	}

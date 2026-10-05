@@ -58,7 +58,13 @@ func (e *APIError) hint() string {
 	case 401:
 		return "the API token was rejected; check that apiTokenFile holds a current REST API v2 token"
 	case 403:
-		return "the token has no grant for this endpoint; widen the role attached to the service account (Settings > Administration > Roles), or the token's endpoint grants if it predates RBAC v3"
+		// Unlicensed features also 403, and no role change will fix those.
+		body := strings.ToLower(e.Message + " " + e.Snippet)
+		if strings.Contains(body, "licens") || strings.Contains(body, "not available for this tenant") ||
+			strings.Contains(body, "not enabled for this tenant") {
+			return "this feature is not licensed or enabled on the tenant; Netskope support or the account team has to turn it on -- not a role problem"
+		}
+		return "the route exists but refused this token: either the role on the service account does not cover it (Settings > Administration > Roles; a legacy token's endpoint grants), or the feature or its API is not enabled on this tenant, which only Netskope support can change"
 	case 404:
 		if strings.Contains(e.Message, "no Route matched") {
 			return "this tenant has no such API route; the endpoint is unavailable here or the path is wrong -- not a permissions problem"

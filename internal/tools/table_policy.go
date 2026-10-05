@@ -103,7 +103,11 @@ var policyResources = []Resource{
 		Actions:      deployable,
 		UpdateMethod: "PATCH",
 		Description: "Remote (upstream) proxies that Netskope forwards selected traffic through. " +
-			"Endpoint: /api/v2/profiles/remoteproxies." + pendingNote,
+			"Endpoint: /api/v2/profiles/remoteproxies.\n\n" +
+			"The API is in Beta at Netskope and has 403d under a full-access role, so a 403 " +
+			"here is likely the tenant, not the role. Filter with `query.jql`: attributes id, name, description, host, " +
+			"status, label_ids; operators =, IN (\"a\",\"b\"), ~ (contains); up to 5 joined with AND, " +
+			"e.g. `name ~ \"proxy\" AND status = \"applied\"`." + pendingNote,
 	},
 	{
 		Name:         "netskope_domain_frontings",
@@ -130,6 +134,9 @@ var policyResources = []Resource{
 			"netskope_realtime_policy_groups lists. This returns the current configuration, " +
 			"which can include rules edited but not yet deployed; /rules/applied is what is live " +
 			"on the data plane.\n\n" +
+			"Filter with `query.jql`, not `filter`: attributes id, group_id, name, enabled, status; " +
+			"operators = (exact), IN (\"a\",\"b\") and ~ (contains), joined with AND, e.g. " +
+			"`name ~ \"eng\" AND enabled = true`. `limit` defaults to 10, max 1000.\n\n" +
 			"For private-access policy use netskope_npa_policy_rules instead: these two are " +
 			"different rulebooks and a private app will not appear here.\n\n" +
 			"Exposed read-only: a malformed rule can block all egress for every steered user. " +

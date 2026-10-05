@@ -166,7 +166,6 @@ in
         "scim"
         "reporting"
         "steering"
-        "dlp"
         "incidents"
       ];
       example = [
