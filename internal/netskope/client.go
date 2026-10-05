@@ -137,7 +137,11 @@ func (c *Client) Do(ctx context.Context, method, path string, q url.Values, body
 	if out == nil || len(raw) == 0 {
 		return nil
 	}
-	if err := json.Unmarshal(raw, out); err != nil {
+	// UseNumber: incident and forensic ids are 19-digit integers, past float64's
+	// 2^53, and would come back rounded to an id that no longer exists.
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(out); err != nil {
 		return fmt.Errorf("decoding %s %s response: %w", method, path, err)
 	}
 	return nil

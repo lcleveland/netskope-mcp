@@ -2,6 +2,7 @@ package netskope
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -293,5 +294,20 @@ func TestContextCancellationStopsRetries(t *testing.T) {
 	}
 	if d := time.Since(start); d > 5*time.Second {
 		t.Fatalf("retries ignored the context deadline: took %s", d)
+	}
+}
+
+// Incident ids exceed 2^53; decoding into any must not round them through float64.
+func TestLargeIntegersSurviveDecoding(t *testing.T) {
+	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"incident_id":3469501103500996123}`))
+	})
+	var out any
+	if err := c.Do(context.Background(), http.MethodGet, "/api/v2/x", nil, nil, &out); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(out)
+	if want := `{"incident_id":3469501103500996123}`; string(b) != want {
+		t.Errorf("round trip = %s, want %s", b, want)
 	}
 }
