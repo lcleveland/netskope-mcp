@@ -130,6 +130,9 @@ var policyResources = []Resource{
 			"netskope_realtime_policy_groups lists. This returns the current configuration, " +
 			"which can include rules edited but not yet deployed; /rules/applied is what is live " +
 			"on the data plane.\n\n" +
+			"Filter with `query.jql`, not `filter`: attributes id, group_id, name, enabled, status; " +
+			"operators = (exact), IN (\"a\",\"b\") and ~ (contains), joined with AND, e.g. " +
+			"`name ~ \"eng\" AND enabled = true`. `limit` defaults to 10, max 1000.\n\n" +
 			"For private-access policy use netskope_npa_policy_rules instead: these two are " +
 			"different rulebooks and a private app will not appear here.\n\n" +
 			"Exposed read-only: a malformed rule can block all egress for every steered user. " +

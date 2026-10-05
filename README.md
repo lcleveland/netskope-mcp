@@ -421,7 +421,7 @@ Three known tenant-side gates:
   that needs widening, but no role you can build in the UI will clear it. Do not chase this
   in the grant table. Even the documented, non-beta `GET .../internetaccess/defaultaction`
   answers 403 *"Feature not enabled for this tenant"* until Netskope turns the feature on,
-  and `rules`/`groups` may not appear in the tenant's Swagger at all. Observed on a tenant where every other group answered 200 — NPA
+  and Swagger marks `rules` *"still under development and not ready for use"*. Observed on a tenant where every other group answered 200 — NPA
   policy included — and only these two 403d, under a role that covered them. Read inline
   policy in the Netskope UI meanwhile.
 - **The DLP API is not generally available either.** Swagger marks `/api/v2/services/dlp/*`
