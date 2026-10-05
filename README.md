@@ -386,7 +386,9 @@ done
 ```
 
 - **200** — the route exists and the role covers it.
-- **403** — the route exists, the role does not cover it. Widen the role.
+- **403** — the route exists and refused the token. Either the role does not cover it, or
+  the feature or its API is not enabled on the tenant (see the gates below). If the role is
+  already full access, it is the tenant, and only Netskope support can change it.
 - **404 `no Route matched with those values`** — the route is absent from this tenant.
   Nothing you can grant will fix it.
 
@@ -413,14 +415,16 @@ Three known tenant-side gates:
   `/api/v2/policy/internetaccess/*` routes are still in development at Netskope and have to
   be enabled per tenant by Netskope, the same way `npa_api_policy_enabled` does. Until they
   are, `netskope_realtime_policy_rules` and `netskope_realtime_policy_groups` 403 on every
-  call with *"the token has no grant for this endpoint"* — which reads exactly like a role
+  call with a 403 — which reads exactly like a role
   that needs widening, but no role you can build in the UI will clear it. Do not chase this
   in the grant table. Observed on a tenant where every other group answered 200 — NPA
   policy included — and only these two 403d, under a role that covered them. Read inline
   policy in the Netskope UI meanwhile.
-- A role that does not cover an endpoint produces a 403 that looks identical to a bug. The
-  client maps it to *"the token has no grant for this endpoint; widen the role attached to
-  the service account..."* precisely so it does not.
+- A 403 looks identical to a bug, and the body rarely says whether the role or the tenant
+  refused. The client says "not licensed" when the body mentions a license, and otherwise
+  names both causes. Under a full-access role, read every 403 as a tenant gate: on one
+  such tenant the DLP, DNS profile, remote proxy and AI Gateway routes all 403d, DLP
+  despite live DLP incidents, so a licensed feature does not imply its API is enabled.
 
 A 404 here has meant a wrong path in this table far more often than a missing route on the
 tenant. Every path corrected so far was ours: `npa/brokers` → `infrastructure/lbrokers`,

@@ -180,7 +180,7 @@ func TestErrorHints(t *testing.T) {
 		want   string
 	}{
 		{http.StatusUnauthorized, `{}`, "token was rejected"},
-		{http.StatusForbidden, `{}`, "no grant for this endpoint"},
+		{http.StatusForbidden, `{}`, "role on the service account does not cover it"},
 		// Unlicensed features 403 too; widening the role would not help.
 		{http.StatusForbidden, `{"message":"forbidden: This is a licensed feature, please contact Netskope support for enablement"}`, "not licensed"},
 		{http.StatusForbidden, `{"message":"Signature Override feature or Threat Hunting license is not enabled."}`, "not licensed"},
