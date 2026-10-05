@@ -200,10 +200,11 @@ matters.
 
 It cuts the other way too, and this one is measured rather than inferred: granting **Manage**
 on the NPA section covered `/api/v2/steering/*` and `/api/v2/infrastructure/*` but *not*
-`/api/v2/policy/npa/*`, whose writes still returned 403. The NPA tools in the table above
-span at least two functions, so "NPA is writable" is not a conclusion you can draw from one
-grant — verify per endpoint with the probe in
-[Verifying the endpoints](#verifying-the-endpoints).
+`/api/v2/policy/npa/*`, whose writes still returned 403 while reads answered 200. The same
+`PATCH` on a policy rule succeeded once the role was widened to full access, so the 403 was
+the role, not a tenant gate. The NPA tools in the table above span at least two functions,
+so "NPA is writable" is not a conclusion you can draw from one grant — verify per endpoint
+with the probe in [Verifying the endpoints](#verifying-the-endpoints).
 
 #### If you want writes
 
@@ -375,7 +376,9 @@ when probing by hand a bare status code will tell you nothing is wrong.
 Three known tenant-side gates:
 
 - **`npa_api_policy_enabled`** is off by default and needs Netskope support to enable. If
-  every `netskope_npa_policy_rules` call 403s, that flag is why.
+  every `netskope_npa_policy_rules` call 403s, that flag is why. It gates the routes as a
+  whole, not writes alone: if reads answer and only `create` or `update` 403s, the flag is
+  on and the role is what needs widening.
 - **Real-time protection policy over the API is not generally available.** The
   `/api/v2/policy/internetaccess/*` routes are still in development at Netskope and have to
   be enabled per tenant by Netskope, the same way `npa_api_policy_enabled` does. Until they

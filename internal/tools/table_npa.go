@@ -97,7 +97,8 @@ var npaResources = []Resource{
 			"meaning of the ones below it. Read the current ordering before writing.\n\n" +
 			"These endpoints are gated behind the tenant flag `npa_api_policy_enabled`, which is " +
 			"off by default; if every call here 403s, that flag is why and Netskope support has to " +
-			"turn it on.",
+			"turn it on. If reads work and only create or update 403s, the flag is on and the " +
+			"role attached to the token is too narrow.",
 	},
 	{
 		Name:         "netskope_npa_policy_groups",
