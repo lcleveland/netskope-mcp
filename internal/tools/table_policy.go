@@ -24,7 +24,8 @@ var policyResources = []Resource{
 			"Bodies take `name` and a `data` object with `urls` (the entries) and `type` " +
 			"(`exact` or `regex`).\n\n" +
 			"Editing a list does NOT change live traffic on its own: changes sit pending until " +
-			"`deploy`, which pushes every pending URL list change live. Netskope is migrating URL " +
+			"`deploy`, which pushes every pending URL list change live. A `delete` is pending too: " +
+			"the list stays, marked deleted, until the next deploy. Netskope is migrating URL " +
 			"lists to destination profiles (netskope_destination_profiles) for new policy.",
 	},
 	{
@@ -38,7 +39,8 @@ var policyResources = []Resource{
 		Description: "Custom URL categories, which group URL lists and destination profiles into " +
 			"something policy can match by name alongside Netskope's built-in categories. " +
 			"Endpoint: /api/v2/profiles/customcategories.\n\n" +
-			"Bodies take `name` and the included/excluded list or profile ids." + pendingNote,
+			"Bodies take `name` and the included/excluded list or profile ids. A URL list that is " +
+			"still pending create cannot be included (400) until it is deployed." + pendingNote,
 	},
 	{
 		Name:         "netskope_destination_profiles",
@@ -52,7 +54,8 @@ var policyResources = []Resource{
 			"Endpoint: /api/v2/profiles/destinations.\n\n" +
 			"Create bodies need `name` and `type`.\n\n" +
 			"Adding or removing single values without rewriting the list goes through " +
-			"PATCH {id}/values, which this tool does not send; `update` replaces what it names. " +
+			"PATCH {id}/values, which this tool does not send. `update` cannot change `values` at " +
+			"all (400); it edits name, description and labels. " +
 			"Check what a URL matches with netskope_api POST " +
 			"/api/v2/profiles/destinations/getevaluation." + pendingNote,
 	},

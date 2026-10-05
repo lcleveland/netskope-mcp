@@ -1,10 +1,15 @@
 package tools
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"slices"
 	"testing"
 
 	"github.com/lcleveland/netskope-mcp/internal/config"
+	"github.com/lcleveland/netskope-mcp/internal/netskope"
 )
 
 func TestRoute(t *testing.T) {
@@ -58,5 +63,27 @@ func TestResourceTable(t *testing.T) {
 		if !slices.Contains(config.Groups, r.Group) {
 			t.Errorf("%s is in unknown group %q", r.Name, r.Group)
 		}
+	}
+}
+
+// MCP rejects a non-object structuredContent, and urllist create answers with a
+// bare array: every non-list result has to come back as an object.
+func TestCallWrapsNonObjectResults(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`[{"id":16}]`))
+	}))
+	t.Cleanup(srv.Close)
+	u, _ := url.Parse(srv.URL)
+	c, err := netskope.New(netskope.Options{BaseURL: u, Token: "t", HTTPClient: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := Resource{Collection: "/c"}
+	out, err := r.call(context.Background(), c, []Action{ActionCreate}, Input{Action: ActionCreate, Body: map[string]any{"name": "x"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := out.(map[string]any); !ok {
+		t.Errorf("create result is %T, want an object", out)
 	}
 }
