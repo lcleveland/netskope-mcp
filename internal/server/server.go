@@ -45,7 +45,8 @@ func instructions(cfg *config.Config) string {
 		"URL from a rejected token from a token with too narrow a role.\n\n" +
 		"This is production security infrastructure. NPA policy rule order is significant and " +
 		"the first match wins, so read the current ordering before inserting a rule. URL list " +
-		"and custom category edits do not affect live traffic until they are deployed.\n\n"
+		"edits do not affect live traffic until they are deployed, but destination profile, " +
+		"custom category and service profile writes take effect immediately.\n\n"
 	if cfg.AllowDestructive {
 		return s + "Delete actions ARE enabled. Netskope has no undo: confirm with the user " +
 			"before deleting a publisher, private app, policy rule or SCIM object."

@@ -186,8 +186,11 @@ find the function to enable; under the legacy flow it is the grant list directly
 ‡ `update` is sent as `PATCH`, not `PUT`: the gateway registers no `PUT` route at item level
 there. See `Resource.UpdateMethod`.
 
-`deploy` pushes every pending change in that collection live; `revert` discards one object's
-pending edits. Profile edits do nothing to traffic until deployed.
+URL list edits, creates and deletes sit pending until `deploy`, which pushes every pending
+URL list change live. Destination profiles, custom categories and service profiles are the
+opposite: API writes there take effect immediately, and `deploy` (body `{"ids": [...]}`, plus
+`change_note` for service profiles) and `revert` act only on edits staged in the admin
+console. Network, DNS and remote-proxy profiles and DLP could not be checked on this tenant.
 
 § These two grants do nothing yet: the `internetaccess` policy API is still in development
 and Netskope has to enable it per tenant, so the endpoints 403 no matter how wide the role
