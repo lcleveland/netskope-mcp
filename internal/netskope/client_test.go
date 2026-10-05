@@ -180,6 +180,10 @@ func TestErrorHints(t *testing.T) {
 	}{
 		{http.StatusUnauthorized, `{}`, "token was rejected"},
 		{http.StatusForbidden, `{}`, "no grant for this endpoint"},
+		// Unlicensed features 403 too; widening the role would not help.
+		{http.StatusForbidden, `{"message":"forbidden: This is a licensed feature, please contact Netskope support for enablement"}`, "not licensed"},
+		{http.StatusForbidden, `{"message":"Signature Override feature or Threat Hunting license is not enabled."}`, "not licensed"},
+		{http.StatusForbidden, `{"errorMsg":"Advanced UBA is not available for this tenant"}`, "not licensed"},
 		{http.StatusNotFound, `{}`, "no such object"},
 		// Kong answers an absent route with a 404 that has nothing to do with
 		// the object asked for, so it must not read as "no such object".
