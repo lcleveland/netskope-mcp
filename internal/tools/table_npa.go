@@ -34,8 +34,9 @@ var npaResources = []Resource{
 		Actions:    crud,
 		Description: "Maintenance windows that control when publishers take new releases. " +
 			"Endpoint: /api/v2/infrastructure/publisherupgradeprofiles.\n\n" +
-			"Bodies take `name`, `enabled`, `docker_tag`, `frequency` (a cron expression) and " +
-			"`timezone`. A publisher with no profile upgrades on Netskope's own schedule, which is " +
+			"Bodies take `name` (20 characters at most), `enabled`, `docker_tag`, `frequency` " +
+			"(a cron expression), `timezone` and `release_type` (e.g. `Latest`). `update` replaces " +
+			"the whole profile: send every field again, plus `id` matching the path. A publisher with no profile upgrades on Netskope's own schedule, which is " +
 			"usually not what a change-controlled environment wants.",
 	},
 	{
@@ -60,9 +61,11 @@ var npaResources = []Resource{
 			"policy rules grant access to. Endpoint: /api/v2/steering/apps/private.\n\n" +
 			"Bodies take `app_name`, `host` (a comma-separated list of FQDNs, CIDRs or wildcards), " +
 			"`protocols` (each `{type: tcp|udp, port: \"443\"}`), `publishers` (the publishers that " +
-			"serve it), `clientless_access`, `trust_self_signed_certs` and `tags`.\n\n" +
-			"This is the largest collection in most tenants; filter with " +
-			"`query.query` or `query.filter` rather than listing everything.",
+			"serve it), `clientless_access`, `trust_self_signed_certs` and `tags`. `update` replaces " +
+			"the whole app: send `id` (matching the path), `app_name`, `host` and `protocols` " +
+			"again, or the tenant rejects it.\n\n" +
+			"This is the largest collection in most tenants; filter rather than listing everything. " +
+			"`query.query` takes an expression such as `app_name has sql`; bare text is a 400.",
 	},
 	{
 		Name:       "netskope_private_app_tags",
@@ -89,9 +92,12 @@ var npaResources = []Resource{
 		UpdateMethod: "PATCH",
 		Description: "Access rules deciding which users and devices reach which private apps. " +
 			"Endpoint: /api/v2/policy/npa/rules.\n\n" +
-			"Bodies take `rule_name`, `description`, `enabled`, `action` (allow or block), " +
-			"`group` (the policy group id), `rule_order`, and a `rule_data` object holding the " +
-			"match criteria: `users`, `user_groups`, `organization_units`, `privateApps`, " +
+			"Bodies take `rule_name`, `description`, `enabled` (\"0\" or \"1\"), `group_id` (the " +
+			"policy group), `rule_order` (e.g. `{\"order\": \"top\"}`), and a `rule_data` object. " +
+			"`rule_data` needs `policy_type: private-app`, `json_version: 3`, `access_method` (e.g. " +
+			"`[\"Client\"]`; required) and `match_criteria_action: {action_name: allow|block}`; a " +
+			"block also needs a notification `template`. Match criteria: `users`, `user_groups`, " +
+			"`organization_units`, `privateApps` (bracketed names, e.g. `[app]`), " +
 			"`privateAppTags`, `classification`, `device_classification_id`.\n\n" +
 			"Rule order is significant and the first match wins, so inserting a rule changes the " +
 			"meaning of the ones below it. Read the current ordering before writing.\n\n" +
@@ -110,6 +116,8 @@ var npaResources = []Resource{
 		Description: "Policy groups: the ordered containers that NPA rules live in. " +
 			"Endpoint: /api/v2/policy/npa/policygroups.\n\n" +
 			"Group order determines rule evaluation order across groups, so this is the coarse " +
-			"knob to read first when a rule is not taking effect.",
+			"knob to read first when a rule is not taking effect.\n\n" +
+			"Create needs `group_name` and `group_order: {\"group_id\": \"<existing id>\", " +
+			"\"order\": \"before\"|\"after\"}`, which places the new group relative to another.",
 	},
 }

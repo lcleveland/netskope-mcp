@@ -14,7 +14,9 @@ var deviceResources = []Resource{
 		Description: "Rules that classify devices (e.g. managed vs unmanaged) from posture checks. " +
 			"Endpoint: /api/v2/deviceclassification/rules.\n\n" +
 			"Create bodies take `name`, `label`, `os` and `conditions`; send one rule as an " +
-			"object, the tool wraps it in the array the route wants. Create returns no object: " +
+			"object, the tool wraps it in the array the route wants. `conditions` must nest each " +
+			"check three levels deep, `{\"$and\": [{\"$or\": [{\"$and\": [{\"domain_check\": ...}]}]}]}`, " +
+			"even though older rules read back with two; shallower is a 400. Create returns no object: " +
 			"list with `query.label` to find the new rule. Policy rules match on the resulting " +
 			"classification, so a rule change can move every device in or out of a policy at once.",
 	},

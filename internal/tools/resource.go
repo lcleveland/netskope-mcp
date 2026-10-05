@@ -182,6 +182,11 @@ func (r Resource) call(ctx context.Context, c *netskope.Client, allowed []Action
 	if in.Action == ActionList {
 		return capResult(out, r.maxItems()), nil
 	}
+	// MCP requires structuredContent to be an object; a write can answer with a
+	// bare array (urllist create) or scalar, and the client rejects the result.
+	if _, ok := out.(map[string]any); !ok && out != nil {
+		return map[string]any{"data": out}, nil
+	}
 	return out, nil
 }
 
