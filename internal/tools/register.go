@@ -33,6 +33,12 @@ func All() []Resource {
 	rs = append(rs, policyResources...)
 	rs = append(rs, scimResources...)
 	rs = append(rs, reportingResources...)
+	rs = append(rs, steeringResources...)
+	rs = append(rs, dlpResources...)
+	rs = append(rs, incidentResources...)
+	rs = append(rs, deviceResources...)
+	rs = append(rs, ipsResources...)
+	rs = append(rs, aigResources...)
 	return rs
 }
 

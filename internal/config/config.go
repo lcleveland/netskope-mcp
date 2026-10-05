@@ -33,18 +33,20 @@ const (
 // given. Narrowing them is not only about safety: every registered tool costs
 // context in the client's tools/list, so a tenant that only cares about NPA
 // should say so.
-var DefaultGroups = []string{"core", "npa", "policy", "events", "scim", "reporting"}
+var DefaultGroups = []string{"core", "npa", "policy", "events", "scim", "reporting", "steering", "dlp", "incidents"}
 
 // Groups are every family --tool-groups accepts. Anything here but not in
-// DefaultGroups is opt-in and has to be named explicitly, because it only works
-// on a tenant that has been set up for it, and a tool that 403s on every call is
-// worse than no tool at all:
+// DefaultGroups is opt-in and has to be named explicitly:
 //
 //   - "internetaccess": the real-time protection policy tools. That API is
 //     still in development at Netskope and has to be enabled per tenant by
 //     Netskope, so until it is, every call 403s with what reads like a role
 //     problem and no role can fix it. Turn it on once the routes answer.
-var Groups = append(slices.Clone(DefaultGroups), "internetaccess")
+//   - "ips": tenant-wide IPS switches. One update changes threat blocking for
+//     every steered user, so it is never on by accident.
+//   - "devices", "aig": device classification and AI Gateway. Only useful on a
+//     tenant that uses them, and otherwise just context spent in tools/list.
+var Groups = append(slices.Clone(DefaultGroups), "internetaccess", "devices", "ips", "aig")
 
 // Config is the fully resolved configuration. Its String and LogValue methods
 // redact the secrets, so logging a Config by accident cannot leak one.
