@@ -300,7 +300,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
 | `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
-| `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` |
+| `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` — **opt-in**: the API is still in development at Netskope |
 | `incidents` | `netskope_watchlists`, `netskope_incident_update` |
 | `devices` | `netskope_device_classification_rules`, `netskope_device_classification_tags` — **opt-in** |
 | `ips` | `netskope_ips_status`, `netskope_ips_allowlist`, `netskope_ips_signature_overrides` — **opt-in**: tenant-wide threat blocking |
@@ -309,8 +309,10 @@ model picks well from ~20 well-described tools and poorly from ~90.
 Narrow the surface with `toolGroups` — it is not only a safety knob, since every registered
 tool costs context in the client's tool list.
 
-`devices`, `ips` and `aig` are not registered by default either: add them to `toolGroups`
-when the tenant uses them. `ips` in particular changes threat blocking for every user.
+`dlp`, `devices`, `ips` and `aig` are not registered by default either: add them to
+`toolGroups` when the tenant uses them. `dlp` is off for the same reason as
+`internetaccess`: Netskope marks `/api/v2/services/dlp` as still under development, and
+until the account team enables it every call 403s. `ips` in particular changes threat blocking for every user.
 
 § `internetaccess` is not registered by default because until Netskope
 enables those routes on your tenant every call to them 403s — see the `§` note above — and a
@@ -420,6 +422,10 @@ Three known tenant-side gates:
   in the grant table. Observed on a tenant where every other group answered 200 — NPA
   policy included — and only these two 403d, under a role that covered them. Read inline
   policy in the Netskope UI meanwhile.
+- **The DLP API is not generally available either.** Swagger marks `/api/v2/services/dlp/*`
+  *"still under development and not ready for use"*; the account team enables it per
+  tenant. Until then every DLP call 403s with `DLP_API_ERROR` *"Permission Error"*, under a
+  full-access role and on a tenant with live DLP incidents.
 - A 403 looks identical to a bug, and the body rarely says whether the role or the tenant
   refused. The client says "not licensed" when the body mentions a license, and otherwise
   names both causes. Under a full-access role, read every 403 as a tenant gate: on one
