@@ -101,7 +101,7 @@ in
 
       # So are the in-development internetaccess tools: the default tool-groups
       # list must not carry them.
-      check "--tool-groups core,npa,policy,events,scim,reporting,steering,dlp,incidents" cmd
+      check "--tool-groups core,npa,policy,events,scim,reporting,steering,incidents" cmd
       refute "internetaccess" cmd
 
       touch $out
@@ -138,7 +138,7 @@ in
       cat > cmd <<'EOF'
       ${config.systemd.services.netskope-mcp.serviceConfig.ExecStart}
       EOF
-      grep -qF -- "--tool-groups core,npa,policy,events,scim,reporting,steering,dlp,incidents,internetaccess" cmd || {
+      grep -qF -- "--tool-groups core,npa,policy,events,scim,reporting,steering,incidents,internetaccess" cmd || {
         echo "enableInternetAccess did not reach the binary intact"; cat cmd; exit 1; }
       touch $out
     '';

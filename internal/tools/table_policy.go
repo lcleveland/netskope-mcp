@@ -103,7 +103,11 @@ var policyResources = []Resource{
 		Actions:      deployable,
 		UpdateMethod: "PATCH",
 		Description: "Remote (upstream) proxies that Netskope forwards selected traffic through. " +
-			"Endpoint: /api/v2/profiles/remoteproxies." + pendingNote,
+			"Endpoint: /api/v2/profiles/remoteproxies.\n\n" +
+			"The API is in Beta at Netskope and has 403d under a full-access role, so a 403 " +
+			"here is likely the tenant, not the role. Filter with `query.jql`: attributes id, name, description, host, " +
+			"status, label_ids; operators =, IN (\"a\",\"b\"), ~ (contains); up to 5 joined with AND, " +
+			"e.g. `name ~ \"proxy\" AND status = \"applied\"`." + pendingNote,
 	},
 	{
 		Name:         "netskope_domain_frontings",
