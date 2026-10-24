@@ -87,6 +87,10 @@ type Resource struct {
 	// CreateArray sends the create body as a one-element array: the device
 	// classification "upsert" routes take a list, and reject a bare object.
 	CreateArray bool
+	// GetQuery is sent on get unless the caller sets the same key: SCIM group
+	// get omits `members` without `attributes=members` (Netskope change, EOS
+	// 2026-03-31), and a get-modify-put would then wipe the member list.
+	GetQuery map[string]string
 }
 
 func (r Resource) itemPath(id string) string {
@@ -173,6 +177,13 @@ func (r Resource) call(ctx context.Context, c *netskope.Client, allowed []Action
 	}
 	if in.Action == ActionList {
 		applyListDefaults(q, r.limitParam(), r.maxItems())
+	}
+	if in.Action == ActionGet {
+		for k, v := range r.GetQuery {
+			if !q.Has(k) {
+				q.Set(k, v)
+			}
+		}
 	}
 
 	var out any

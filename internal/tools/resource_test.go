@@ -87,3 +87,33 @@ func TestCallWrapsNonObjectResults(t *testing.T) {
 		t.Errorf("create result is %T, want an object", out)
 	}
 }
+
+// SCIM group get must ask for members, or a get-modify-put empties the group;
+// a caller's own value for the key still wins.
+func TestCallGetQueryDefaults(t *testing.T) {
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.Query().Get("attributes"))
+		w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(srv.Close)
+	u, _ := url.Parse(srv.URL)
+	c, err := netskope.New(netskope.Options{BaseURL: u, Token: "t", HTTPClient: srv.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := Resource{Collection: "/c", GetQuery: map[string]string{"attributes": "members"}}
+	all := []Action{ActionList, ActionGet}
+	for _, in := range []Input{
+		{Action: ActionGet, ID: "1"},
+		{Action: ActionGet, ID: "1", Query: map[string]string{"attributes": "displayName"}},
+		{Action: ActionList},
+	} {
+		if _, err := r.call(context.Background(), c, all, in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if want := []string{"members", "displayName", ""}; !slices.Equal(got, want) {
+		t.Errorf("attributes sent = %q, want %q", got, want)
+	}
+}
