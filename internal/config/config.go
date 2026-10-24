@@ -33,7 +33,7 @@ const (
 // given. Narrowing them is not only about safety: every registered tool costs
 // context in the client's tools/list, so a tenant that only cares about NPA
 // should say so.
-var DefaultGroups = []string{"core", "npa", "policy", "events", "scim", "reporting", "steering", "incidents"}
+var DefaultGroups = []string{"core", "npa", "policy", "events", "scim", "reporting", "steering", "incidents", "intel"}
 
 // Groups are every family --tool-groups accepts. Anything here but not in
 // DefaultGroups is opt-in and has to be named explicitly:

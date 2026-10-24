@@ -153,6 +153,7 @@ in
           "steering"
           "dlp"
           "incidents"
+          "intel"
           "devices"
           "ips"
           "aig"
@@ -167,6 +168,7 @@ in
         "reporting"
         "steering"
         "incidents"
+        "intel"
       ];
       example = [
         "core"

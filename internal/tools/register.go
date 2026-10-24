@@ -39,6 +39,7 @@ func All() []Resource {
 	rs = append(rs, deviceResources...)
 	rs = append(rs, ipsResources...)
 	rs = append(rs, aigResources...)
+	rs = append(rs, intelResources...)
 	return rs
 }
 
@@ -67,6 +68,10 @@ func Register(s *mcp.Server, c *netskope.Client, o Options) (int, error) {
 	}
 	if o.enabled("events") {
 		n += registerEvents(s, c)
+	}
+	if o.enabled("intel") {
+		registerURLLookup(s, c)
+		n++
 	}
 	return n, nil
 }

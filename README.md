@@ -175,6 +175,9 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/deviceclassification/rules`, `/tags` | `netskope_device_classification_rules`, `_tags` (opt-in) | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/ips/status`, `/allowlist`, `/signatureoverrides` | `netskope_ips_*` (opt-in) | `get` | `update` |
 | `/api/v2/aig/aiproviders`, `/mcpservers`, `/ratelimits`, `/tokengroups` | `netskope_aig_*` (opt-in) | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/nsiq/urllookup` | `netskope_url_lookup` | lookup (POST, read-only) | — |
+| `/api/v2/nsiq/url/recategorizations` | `netskope_url_recategorizations` | `list`, `get` | `create` (files a request for Netskope's review) |
+| `/api/v2/services/cci/app` | `netskope_cci_apps` | `get` | — read-only in code |
 | any other `/api/v2/` route | `netskope_api` | GET, POST to `get*` lookups | — read-only in code |
 | `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
@@ -292,7 +295,7 @@ a read-only token, not a flag here.
 
 ## Tools
 
-30 tools by default (41 with every opt-in group), shaped one-per-resource with an `action` enum rather than one per
+29 tools by default (44 with every opt-in group), shaped one-per-resource with an `action` enum rather than one per
 endpoint. That is a deliberate trade: the community Netskope MCP exposes 84 tools, and a
 model picks well from ~20 well-described tools and poorly from ~90.
 
@@ -308,6 +311,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 | `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
 | `dlp` | `netskope_dlp_profiles`, `netskope_dlp_rules`, `netskope_dlp_file_profiles`, `netskope_dlp_data_identifiers` — **opt-in**: the API is still in development at Netskope |
 | `incidents` | `netskope_watchlists`, `netskope_incident_update` |
+| `intel` | `netskope_url_lookup`, `netskope_url_recategorizations`, `netskope_cci_apps` |
 | `devices` | `netskope_device_classification_rules`, `netskope_device_classification_tags` — **opt-in** |
 | `ips` | `netskope_ips_status`, `netskope_ips_allowlist`, `netskope_ips_signature_overrides` — **opt-in**: tenant-wide threat blocking |
 | `aig` | `netskope_aig_ai_providers`, `netskope_aig_mcp_servers`, `netskope_aig_rate_limits`, `netskope_aig_token_groups` — **opt-in** |
@@ -359,7 +363,7 @@ list as a complete one, which is worse than an error.
 | `tenant` / `baseUrl` | tenant short name, or a full URL for a regional tenant — exactly one |
 | `apiTokenFile` | **required**; runtime path to the REST API v2 token |
 | `allowDestructive` (default `false`) | register delete actions |
-| `toolGroups` | default `core`, `npa`, `policy`, `events`, `scim`, `reporting`, `steering`, `dlp`, `incidents`; opt-in `devices`, `ips`, `aig` |
+| `toolGroups` | default `core`, `npa`, `policy`, `events`, `scim`, `reporting`, `steering`, `incidents`, `intel`; opt-in `internetaccess` (see `enableInternetAccess`), `dlp`, `devices`, `ips`, `aig` |
 | `enableInternetAccess` (default `false`) | register the real-time protection policy tools |
 | `listenAddress` (default `127.0.0.1`) / `port` (default `8231`) / `path` (default `/mcp`) | where the endpoint binds |
 | `bearerTokenFile` | shared secret required as `Authorization: Bearer`; effectively mandatory off loopback |
