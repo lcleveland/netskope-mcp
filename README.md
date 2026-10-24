@@ -302,7 +302,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
 | `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_destination_profiles`, `netskope_network_profiles`, `netskope_service_profiles`, `netskope_dns_profiles`, `netskope_remote_proxies`, `netskope_domain_frontings` |
 | `internetaccess` | `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` — **not registered by default**§ |
-| `events` | `netskope_event_search`, `netskope_alert_search` |
+| `events` | `netskope_event_search` (`application`, `page`, `network`, `alert`, `incident`, `clientstatus`), `netskope_alert_search` |
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
 | `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
