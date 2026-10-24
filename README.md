@@ -179,7 +179,7 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/reporting/aa/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
-| `/api/v2/events/datasearch/*` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
+| `/api/v2/events/datasearch/*`, `/api/v2/events/data/audit` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
 
@@ -255,9 +255,9 @@ Two things to check in the role editor rather than assume, because neither the f
 boundaries nor the grant granularity are uniform:
 
 - whether `/api/v2/events/datasearch/` arrives as one endpoint or one per index
-  (`application`, `audit`, `page`, `infrastructure`, `network`, `alert`, `incident`) — the
-  path is built per-type on each call, so if they are separate you need every index you
-  intend to query;
+  (`application`, `page`, `network`, `alert`, `incident`, `clientstatus`) — the path is
+  built per-type on each call, so if they are separate you need every index you intend to
+  query. `type=audit` needs `/api/v2/events/data/audit` (the role's `audit_log` group);
 - whether `/api/v2/steering/apps/private/tags` is covered separately from its parent path.
 
 A missing grant is a 403, which the client maps to a message naming the endpoint, so the
@@ -302,7 +302,7 @@ model picks well from ~20 well-described tools and poorly from ~90.
 | `npa` | `netskope_publishers`, `netskope_publisher_upgrade_profiles`, `netskope_local_brokers`, `netskope_private_apps`, `netskope_private_app_tags`, `netskope_npa_policy_rules`, `netskope_npa_policy_groups` |
 | `policy` | `netskope_url_lists`, `netskope_custom_categories`, `netskope_destination_profiles`, `netskope_network_profiles`, `netskope_service_profiles`, `netskope_dns_profiles`, `netskope_remote_proxies`, `netskope_domain_frontings` |
 | `internetaccess` | `netskope_realtime_policy_rules`, `netskope_realtime_policy_groups` — **not registered by default**§ |
-| `events` | `netskope_event_search` (`application`, `page`, `network`, `alert`, `incident`, `clientstatus`), `netskope_alert_search` |
+| `events` | `netskope_event_search` (`application`, `page`, `network`, `alert`, `incident`, `clientstatus`, `audit`), `netskope_alert_search` |
 | `scim` | `netskope_scim_users`, `netskope_scim_groups` |
 | `reporting` | `netskope_reports` |
 | `steering` | `netskope_ipsec_tunnels`, `netskope_gre_tunnels` |
@@ -336,7 +336,10 @@ which otherwise all look identical.
 belonging to whatever SIEM shares the index — silent, permanent log loss that looks like
 nothing at all from this side. `/api/v2/events/datasearch/{type}` is a stateless `GET` and
 is the right primitive for ad-hoc investigation, so that is what `netskope_event_search`
-uses.
+uses. The admin audit log has no `datasearch` index, so `type=audit` reads the stateless
+`GET /api/v2/events/data/audit` instead (same time window, query and paging parameters).
+Netskope has deprecated that route in favour of `dataexport`; it still answers on our
+tenant, but expect it to go away.
 
 ### Results are capped
 
@@ -448,7 +451,8 @@ real-time protection, which had been pointed at the NPA rulebook and so returned
 private-access rules for an inline query. The tenant's own Swagger
 (`https://<tenant>/apidocs/`, admin UI session — an API token will not open it) is the
 authority; the public docs do not enumerate these. Genuinely absent: the `audit` and
-`infrastructure` `datasearch` indices, which exist only on the `dataexport` family.
+`infrastructure` `datasearch` indices. `audit` is served instead by the older
+`/api/v2/events/data/audit`; `infrastructure` is reachable only through `dataexport`.
 
 A wrong path is one line in a `[]Resource` table in `internal/tools/table_*.go`, not a
 rewritten function — the tables are deliberately data for exactly this reason.

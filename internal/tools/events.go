@@ -18,11 +18,11 @@ import (
 // locally rather than sent, because the tenant's error for a bad type is a bare
 // 404 that reads like the endpoint is missing.
 //
-// `audit` and `infrastructure` are deliberately absent. They are real event
-// types, but only on the dataexport family; datasearch has no route for them and
-// a live tenant 404s both. Listing them here turned an unsupported index into
-// what looked like a broken server.
-var eventTypes = []string{"application", "page", "network", "alert", "incident", "clientstatus"}
+// `audit` has no datasearch route (it 404s), so it is read from
+// /api/v2/events/data/audit instead: a stateless GET taking the same
+// starttime/endtime/query/fields/limit/offset, unlike the dataexport iterator.
+// `infrastructure` stays absent.
+var eventTypes = []string{"application", "page", "network", "alert", "incident", "clientstatus", "audit"}
 
 // EventSearchInput drives a datasearch query.
 //
@@ -33,7 +33,7 @@ var eventTypes = []string{"application", "page", "network", "alert", "incident",
 // that looks like nothing at all from here. datasearch is a stateless GET and
 // is the right primitive for ad-hoc investigation.
 type EventSearchInput struct {
-	Type      string `json:"type,omitempty" jsonschema:"the event index to search: application, page, network, alert, incident or clientstatus"`
+	Type      string `json:"type,omitempty" jsonschema:"the event index to search: application, page, network, alert, incident, clientstatus or audit"`
 	Query     string `json:"query,omitempty" jsonschema:"a Skope IT Query Language expression, e.g. user eq 'a@b.com' and app eq 'Dropbox'"`
 	StartTime string `json:"starttime,omitempty" jsonschema:"start of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to 24 hours ago"`
 	EndTime   string `json:"endtime,omitempty" jsonschema:"end of the window as an RFC3339 timestamp or a Unix epoch in seconds; defaults to now"`
@@ -54,10 +54,14 @@ func registerEvents(s *mcp.Server, c *netskope.Client) int {
 			"hostname, Netskope client version, tunnel/NPA status, device classification, user). " +
 			"A device appears only if its status changed inside the window, so widen it (e.g. 30 " +
 			"days) before concluding a device is missing; query e.g. `hostname eq 'LS-04031'`.\n\n" +
-			"Administrator actions (`audit`) and appliance health (`infrastructure`) are NOT " +
-			"searchable here: they exist only on the dataexport iterator, which this server does " +
-			"not expose because reading it consumes a cursor shared with the tenant's SIEM. Read " +
-			"those in the Netskope UI under Skope IT.\n\n" +
+			"`audit` is the admin audit log: who changed what in the tenant, including logins and " +
+			"REST API calls (fields `user`, `audit_log_event`, `supporting_data`, `severity_level`). " +
+			"It is read from /api/v2/events/data/audit, which Netskope has deprecated in favour " +
+			"of the dataexport iterator; if it starts failing, read it in the UI under Settings > " +
+			"Administration > Audit Log.\n\n" +
+			"Appliance health (`infrastructure`) is NOT searchable here: it exists only on the " +
+			"dataexport iterator, which this server does not expose because reading it consumes a " +
+			"cursor shared with the tenant's SIEM.\n\n" +
 			"Query syntax is field/operator/value joined with `and`/`or`, e.g. " +
 			"`user eq 'a@b.com' and activity eq 'Upload'`. Always bound the window: an " +
 			"unqualified search over a busy tenant is slow and returns little of use. " +
@@ -141,6 +145,9 @@ func searchEvents(ctx context.Context, c *netskope.Client, in EventSearchInput) 
 
 	var out any
 	path := "/api/v2/events/datasearch/" + url.PathEscape(in.Type)
+	if in.Type == "audit" {
+		path = "/api/v2/events/data/audit"
+	}
 	if err := c.Do(ctx, http.MethodGet, path, q, nil, &out); err != nil {
 		return nil, err
 	}

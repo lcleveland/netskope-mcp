@@ -27,6 +27,7 @@ func TestSearchEventsPaths(t *testing.T) {
 	for typ, want := range map[string]string{
 		"clientstatus": "/api/v2/events/datasearch/clientstatus",
 		"alert":        "/api/v2/events/datasearch/alert",
+		"audit":        "/api/v2/events/data/audit",
 	} {
 		if _, err := searchEvents(context.Background(), c, EventSearchInput{Type: typ}); err != nil {
 			t.Fatalf("%s: %v", typ, err)
