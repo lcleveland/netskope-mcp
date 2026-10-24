@@ -117,3 +117,21 @@ func TestCallGetQueryDefaults(t *testing.T) {
 		t.Errorf("attributes sent = %q, want %q", got, want)
 	}
 }
+
+// SCIM membership edits and private-app partial updates go out as PATCH; a PUT
+// there replaces the whole object, silently dropping members or app fields.
+func TestPatchUpdates(t *testing.T) {
+	want := map[string]bool{"netskope_scim_users": true, "netskope_scim_groups": true, "netskope_private_apps": true}
+	for _, r := range All() {
+		if !want[r.Name] {
+			continue
+		}
+		delete(want, r.Name)
+		if m, _, _, err := r.route(Input{Action: ActionUpdate, ID: "1", Body: map[string]any{"x": 1}}); err != nil || m != http.MethodPatch {
+			t.Errorf("%s update = %s, %v; want PATCH", r.Name, m, err)
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("tools missing from the table: %v", want)
+	}
+}

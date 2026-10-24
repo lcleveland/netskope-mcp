@@ -57,13 +57,15 @@ var npaResources = []Resource{
 		Collection: "/api/v2/steering/apps/private",
 		Actions:    crud,
 		MaxItems:   100,
+		// Netskope's own SDK and CLI update with PATCH; PUT is a full replace.
+		UpdateMethod: "PATCH",
 		Description: "Private applications reachable through NPA: the host/port definitions that " +
 			"policy rules grant access to. Endpoint: /api/v2/steering/apps/private.\n\n" +
 			"Bodies take `app_name`, `host` (a comma-separated list of FQDNs, CIDRs or wildcards), " +
 			"`protocols` (each `{type: tcp|udp, port: \"443\"}`), `publishers` (the publishers that " +
-			"serve it), `clientless_access`, `trust_self_signed_certs` and `tags`. `update` replaces " +
-			"the whole app: send `id` (matching the path), `app_name`, `host` and `protocols` " +
-			"again, or the tenant rejects it.\n\n" +
+			"serve it), `clientless_access`, `trust_self_signed_certs` and `tags`. `update` is a " +
+			"PATCH: send only the fields to change. If the tenant rejects a partial body, resend " +
+			"`app_name`, `host` and `protocols` with it.\n\n" +
 			"This is the largest collection in most tenants; filter rather than listing everything. " +
 			"`query.query` takes an expression such as `app_name has sql`; bare text is a 400.",
 	},

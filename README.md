@@ -150,7 +150,7 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/infrastructure/publishers` | `netskope_publishers` (also the `netskope_tenant_info` probe) | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/infrastructure/publisherupgradeprofiles` | `netskope_publisher_upgrade_profiles` | `list`, `get` | `create`, `update`, `delete`† |
 | `/api/v2/infrastructure/lbrokers` | `netskope_local_brokers` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/steering/apps/private` | `netskope_private_apps` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/steering/apps/private/tags` | `netskope_private_app_tags` | `list` | `create`, `update`, `delete`† |
 | `/api/v2/policy/npa/rules` | `netskope_npa_policy_rules` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/internetaccess/rules` | `netskope_realtime_policy_rules` | `list`, `get`§ | — read-only in code, opt-in§ |
@@ -176,15 +176,18 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/ips/status`, `/allowlist`, `/signatureoverrides` | `netskope_ips_*` (opt-in) | `get` | `update` |
 | `/api/v2/aig/aiproviders`, `/mcpservers`, `/ratelimits`, `/tokengroups` | `netskope_aig_*` (opt-in) | `list`, `get` | `create`, `update`‡, `delete`† |
 | any other `/api/v2/` route | `netskope_api` | GET, POST to `get*` lookups | — read-only in code |
-| `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`, `delete`† |
-| `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`, `delete`† |
+| `/api/v2/scim/Users` | `netskope_scim_users` | `list`, `get` | `create`, `update`‡, `delete`† |
+| `/api/v2/scim/Groups` | `netskope_scim_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/reporting/aa/reports` | `netskope_reports` | `list`, `get` | — read-only in code |
 | `/api/v2/events/datasearch/*` | `netskope_event_search`, `netskope_alert_search` | search | — read-only in code |
 
 † `delete` additionally requires `allowDestructive = true`; see [Write safety](#write-safety).
 
 ‡ `update` is sent as `PATCH`, not `PUT`: the gateway registers no `PUT` route at item level
-there. See `Resource.UpdateMethod`.
+there. See `Resource.UpdateMethod`. For the SCIM tools that makes the `update` body a SCIM
+`PatchOp` (`{"schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"], "Operations": [...]}`),
+so group membership is changed with `add`/`remove` operations instead of resending the whole
+member list. Private apps take a partial body, as Netskope's own SDK and CLI send.
 
 URL list edits, creates and deletes sit pending until `deploy`, which pushes every pending
 URL list change live. Destination profiles, custom categories and service profiles are the
