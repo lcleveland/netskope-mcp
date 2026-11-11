@@ -25,6 +25,7 @@ func TestRoute(t *testing.T) {
 		{coll, Input{Action: ActionDeploy}, "POST", "/api/v2/profiles/destinations/deploy"},
 		{coll, Input{Action: ActionRevert, ID: "7"}, "POST", "/api/v2/profiles/destinations/7/revert"},
 		{coll, Input{Action: ActionUpdate, ID: "7", Body: body}, "PATCH", "/api/v2/profiles/destinations/7"},
+		{coll, Input{Action: ActionPatchValues, ID: "7", Body: body}, "PATCH", "/api/v2/profiles/destinations/7/values"},
 		{single, Input{Action: ActionGet}, "GET", "/api/v2/ips/allowlist"},
 		{Resource{Collection: "/c", CreateArray: true}, Input{Action: ActionCreate, Body: body}, "POST", "/c"},
 		{single, Input{Action: ActionUpdate, Body: body}, "PATCH", "/api/v2/ips/allowlist"},

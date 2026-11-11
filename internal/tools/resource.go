@@ -31,6 +31,9 @@ const (
 	ActionDeploy Action = "deploy"
 	// ActionRevert discards an object's pending edits (POST {item}/revert).
 	ActionRevert Action = "revert"
+	// ActionPatchValues appends or removes entries (PATCH {item}/values): the
+	// only route that edits a destination profile's values in place.
+	ActionPatchValues Action = "patch_values"
 )
 
 // Destructive reports whether an action can irreversibly remove tenant
@@ -149,6 +152,11 @@ func (r Resource) route(in Input) (method, path string, body any, err error) {
 			return "", "", nil, fmt.Errorf("action %q requires `id`", in.Action)
 		}
 		return http.MethodPost, r.itemPath(in.ID) + "/revert", orEmpty(in.Body), nil
+	case ActionPatchValues:
+		if in.ID == "" || len(in.Body) == 0 {
+			return "", "", nil, fmt.Errorf("action %q requires `id` and `body`", in.Action)
+		}
+		return http.MethodPatch, r.itemPath(in.ID) + "/values", in.Body, nil
 	case ActionDelete:
 		if in.ID == "" {
 			return "", "", nil, fmt.Errorf("action %q requires `id`", in.Action)

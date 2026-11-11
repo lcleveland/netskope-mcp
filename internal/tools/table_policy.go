@@ -55,7 +55,7 @@ var policyResources = []Resource{
 		Group:        "policy",
 		Title:        "Destination profiles",
 		Collection:   "/api/v2/profiles/destinations",
-		Actions:      deployable,
+		Actions:      []Action{ActionList, ActionGet, ActionCreate, ActionUpdate, ActionDelete, ActionDeploy, ActionRevert, ActionPatchValues},
 		UpdateMethod: "PATCH",
 		// The tenant 400s a limit above 100.
 		MaxItems: 100,
@@ -63,8 +63,12 @@ var policyResources = []Resource{
 			"custom categories match on; the successor to URL lists. " +
 			"Endpoint: /api/v2/profiles/destinations.\n\n" +
 			"Create bodies need `name` and `type`.\n\n" +
-			"Adding or removing single values without rewriting the list goes through " +
-			"PATCH {id}/values, which this tool does not send. `update` cannot change `values` at " +
+			"`patch_values` adds or removes entries in place (PATCH {id}/values), body " +
+			"`{\"operation\": {\"op\": \"append\", \"values\": [\"example.com\", \"*.example.com\"]}}`; " +
+			"`op` is `append` or `remove` (remove also takes `indexes` instead of `values`). " +
+			"Append does not dedupe: `get` the profile first and send only missing entries. " +
+			"The call can outlast the client timeout yet still apply, so after a timeout `get` " +
+			"the profile before sending it again. `update` cannot change `values` at " +
 			"all (400); it edits name, description and labels. " +
 			"Check what a URL matches with netskope_api POST " +
 			"/api/v2/profiles/destinations/getevaluation." + liveNote,

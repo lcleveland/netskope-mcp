@@ -158,7 +158,7 @@ find the function to enable; under the legacy flow it is the grant list directly
 | `/api/v2/policy/npa/policygroups` | `netskope_npa_policy_groups` | `list`, `get` | `create`, `update`‡, `delete`† |
 | `/api/v2/policy/urllist` | `netskope_url_lists` | `list`, `get` | `create`, `update`, `deploy`, `delete`† |
 | `/api/v2/profiles/customcategories` | `netskope_custom_categories` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
-| `/api/v2/profiles/destinations` | `netskope_destination_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
+| `/api/v2/profiles/destinations` | `netskope_destination_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `patch_values`, `delete`† |
 | `/api/v2/profiles/networks` | `netskope_network_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
 | `/api/v2/profiles/serviceobjects` | `netskope_service_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `revert`, `delete`† |
 | `/api/v2/profiles/dns` | `netskope_dns_profiles` | `list`, `get` | `create`, `update`‡, `deploy`, `delete`† |
